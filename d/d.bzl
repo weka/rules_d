@@ -359,8 +359,8 @@ def _d_docs_impl(ctx):
   doc_cmd = (
       [
           "set -e;",
-          "rm -rf %s; mkdir %s;" % (docs_dir, docs_dir),
-          "rm -rf %s; mkdir %s;" % (objs_dir, objs_dir),
+          "rm -rf %s; mkdir -p %s;" % (docs_dir, docs_dir),
+          "rm -rf %s; mkdir -p %s;" % (objs_dir, objs_dir),
           toolchain.d_compiler_path,
           "-c",
           "-D",
