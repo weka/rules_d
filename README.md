@@ -1,3 +1,5 @@
+[![Build status](https://badge.buildkite.com/255dd622ff5647b60b08b6578e49df80f78c9b0d88f2758491.svg)](https://buildkite.com/bazel/rules-d)
+
 # D rules
 
 ## Rules
