@@ -430,7 +430,7 @@ _d_compile_attrs = {
 
 d_library = rule(
     _d_library_impl,
-    attrs = _d_common_attrs + _d_compile_attrs,
+    attrs = dict(_d_common_attrs.items() + _d_compile_attrs.items()),
     outputs = {
         "d_lib": "lib%{name}.a",
     },
@@ -443,13 +443,13 @@ d_source_library = rule(
 
 d_binary = rule(
     _d_binary_impl,
-    attrs = _d_common_attrs + _d_compile_attrs,
+    attrs = dict(_d_common_attrs.items() + _d_compile_attrs.items()),
     executable = True,
 )
 
 d_test = rule(
     _d_test_impl,
-    attrs = _d_common_attrs + _d_compile_attrs,
+    attrs = dict(_d_common_attrs.items() + _d_compile_attrs.items()),
     executable = True,
     test = True,
 )
@@ -460,7 +460,7 @@ _d_docs_attrs = {
 
 d_docs = rule(
     _d_docs_impl,
-    attrs = _d_docs_attrs + _d_compile_attrs,
+    attrs = dict(_d_common_attrs.items() + _d_compile_attrs.items()),
     outputs = {
         "d_docs": "%{name}-docs.zip",
     },
