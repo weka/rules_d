@@ -2,10 +2,17 @@
 
 # D rules
 
+## Status
+
+We make sure this repository works with the latest version of Bazel, but no
+other development is planned.
+
+Volunteers are welcome. If you want to use the rules, consider contributing to
+this repository and becoming a maintainer.
+
 ## Rules
 
 <div class="toc">
-  <h2>Rules</h2>
   <ul>
     <li><a href="#d_library">d_library</a></li>
     <li><a href="#d_source_library">d_source_library</a></li>
