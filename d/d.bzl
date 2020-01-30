@@ -572,17 +572,17 @@ def d_repositories():
     http_archive(
         name = "dmd_linux_x86_64",
         urls = [
-            "http://downloads.dlang.org/releases/2.x/2.083.1/dmd.2.083.1.linux.tar.xz",
+            "http://downloads.dlang.org/releases/2020/dmd.2.090.0.linux.tar.xz",
         ],
-        sha256 = "33245ed0330aced2bdf5fe58b0dc1487c8417bd3192e584080d93282fe879afe",
+        sha256 = "17b407da594ad8fe96e7a8937434aaec2511b8623f05c3c27a5bc48d63a468a5",
         build_file_content = DMD_BUILD_FILE,
     )
 
     http_archive(
         name = "dmd_darwin_x86_64",
         urls = [
-            "http://downloads.dlang.org/releases/2.x/2.083.1/dmd.2.083.1.osx.tar.xz",
+            "http://downloads.dlang.org/releases/2020/dmd.2.090.0.osx.tar.xz",
         ],
-        sha256 = "c7d947a86dea08a52ef611d30e8692e1321942f65967fd760305ba64bb0f4035",
+        sha256 = "6f1120e1fabda1d9da39bbe9cdd1b0886003f435948c15b6457fc6dada7bd344",
         build_file_content = DMD_BUILD_FILE,
     )
