@@ -64,7 +64,7 @@ def _format_version(name):
     """Formats the string name to be used in a --version flag."""
     return name.replace("-", "_")
 
-def _build_compile_arglist(ctx, srcs, out, depinfo, extra_flags = []):
+def _build_compile_arglist(ctx, out, depinfo, extra_flags = []):
     """Returns a list of strings constituting the D compile command arguments."""
     toolchain = _d_toolchain(ctx)
     return (
@@ -81,8 +81,7 @@ def _build_compile_arglist(ctx, srcs, out, depinfo, extra_flags = []):
         toolchain.import_flags +
         ["-version=Have_%s" % _format_version(ctx.label.name)] +
         ["-version=%s" % v for v in ctx.attr.versions] +
-        ["-version=%s" % v for v in depinfo.versions] +
-        srcs
+        ["-version=%s" % v for v in depinfo.versions]
     )
 
 def _build_link_arglist(ctx, objs, out, depinfo):
@@ -181,11 +180,17 @@ def _d_library_impl(ctx):
     # Build compile command.
     compile_args = _build_compile_arglist(
         ctx = ctx,
-        srcs = [src.path for src in ctx.files.srcs],
         out = d_lib,
         depinfo = depinfo,
         extra_flags = ["-lib"],
     )
+
+    # Convert sources to args
+    # This is done to support receiving a File that is a directory, as
+    # args will auto-expand this to the contained files
+    args = ctx.actions.args()
+    args.add_all(compile_args)
+    args.add_all(ctx.files.srcs)
 
     compile_inputs = depset(
         ctx.files.srcs +
@@ -206,7 +211,7 @@ def _d_library_impl(ctx):
         outputs = [d_lib],
         mnemonic = "Dcompile",
         executable = ctx.file._d_compiler.path,
-        arguments = compile_args,
+        arguments = [args],
         use_default_shell_env = True,
         progress_message = "Compiling D library " + ctx.label.name,
     )
@@ -231,11 +236,17 @@ def _d_binary_impl_common(ctx, extra_flags = []):
     # Build compile command
     compile_args = _build_compile_arglist(
         ctx = ctx,
-        srcs = [src.path for src in ctx.files.srcs],
         depinfo = depinfo,
         out = d_obj,
         extra_flags = ["-c"] + extra_flags,
     )
+
+    # Convert sources to args
+    # This is done to support receiving a File that is a directory, as
+    # args will auto-expand this to the contained files
+    args = ctx.actions.args()
+    args.add_all(compile_args)
+    args.add_all(ctx.files.srcs)
 
     toolchain_files = (
         ctx.files._d_stdlib +
@@ -253,7 +264,7 @@ def _d_binary_impl_common(ctx, extra_flags = []):
         outputs = [d_obj],
         mnemonic = "Dcompile",
         executable = ctx.file._d_compiler.path,
-        arguments = compile_args,
+        arguments = [args],
         use_default_shell_env = True,
         progress_message = "Compiling D binary " + ctx.label.name,
     )
