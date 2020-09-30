@@ -17,7 +17,7 @@
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 def _is_windows(ctx):
-    return ctx.configuration.host_path_separator == ';'
+    return ctx.configuration.host_path_separator == ";"
 
 def a_filetype(ctx, files):
     lib_suffix = ".lib" if _is_windows(ctx) else ".a"
@@ -64,6 +64,16 @@ def _format_version(name):
     """Formats the string name to be used in a --version flag."""
     return name.replace("-", "_")
 
+def _build_import(label, im):
+    """Builds the import path under a specific label"""
+    import_path = ""
+    if label.workspace_root:
+        import_path += label.workspace_root + "/"
+    if label.package:
+        import_path += label.package + "/"
+    import_path += im
+    return import_path
+
 def _build_compile_arglist(ctx, out, depinfo, extra_flags = []):
     """Returns a list of strings constituting the D compile command arguments."""
     toolchain = _d_toolchain(ctx)
@@ -76,7 +86,7 @@ def _build_compile_arglist(ctx, out, depinfo, extra_flags = []):
             "-w",
             "-g",
         ] +
-        ["-I%s/%s" % (ctx.label.package, im) for im in ctx.attr.imports] +
+        ["-I%s" % _build_import(ctx.label, im) for im in ctx.attr.imports] +
         ["-I%s" % im for im in depinfo.imports] +
         toolchain.import_flags +
         ["-version=Have_%s" % _format_version(ctx.label.name)] +
@@ -88,10 +98,12 @@ def _build_link_arglist(ctx, objs, out, depinfo):
     """Returns a list of strings constituting the D link command arguments."""
     toolchain = _d_toolchain(ctx)
     return (
-        (["-m64",
-          "-L/DEFAULTLIB:user32",
-          "-L/NODEFAULTLIB:libcmt",
-          "-L/DEFAULTLIB:msvcrt",] if _is_windows(ctx) else []) +
+        ([
+            "-m64",
+            "-L/DEFAULTLIB:user32",
+            "-L/NODEFAULTLIB:libcmt",
+            "-L/DEFAULTLIB:msvcrt",
+        ] if _is_windows(ctx) else []) +
         ["-of" + out.path] +
         toolchain.link_flags +
         [f.path for f in depset(transitive = [depinfo.libs, depinfo.transitive_libs]).to_list()] +
@@ -139,7 +151,7 @@ def _setup_deps(ctx, deps, name, working_dir):
             transitive_d_srcs.append(dep.transitive_d_srcs)
             versions += dep.versions + ["Have_%s" % _format_version(dep.label.name)]
             link_flags.extend(dep.link_flags)
-            imports += ["%s/%s" % (dep.label.package, im) for im in dep.imports]
+            imports += [_build_import(dep.label, im) for im in dep.imports]
 
         elif hasattr(dep, "d_srcs"):
             # The dependency is a d_source_library.
@@ -147,7 +159,7 @@ def _setup_deps(ctx, deps, name, working_dir):
             transitive_d_srcs.append(dep.transitive_d_srcs)
             transitive_libs.append(dep.transitive_libs)
             link_flags += ["-L%s" % linkopt for linkopt in dep.linkopts]
-            imports += ["%s/%s" % (dep.label.package, im) for im in dep.imports]
+            imports += [_build_import(dep.label, im) for im in dep.imports]
             versions += dep.versions
 
         elif CcInfo in dep:
@@ -401,7 +413,7 @@ def _d_docs_impl(ctx):
             "-od%s" % objs_dir,
             "-I.",
         ] +
-        ["-I%s/%s" % (ctx.label.package, im) for im in target.imports] +
+        ["-I%s" % _build_import(ctx.label, im) for im in target.imports] +
         toolchain.import_flags +
         [src.path for src in target.srcs] +
         [
