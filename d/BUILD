@@ -1,57 +1,33 @@
 package(default_visibility = ["//visibility:public"])
 
+load("//d:toolchain.bzl", "D_TOOLCHAIN", "d_toolchain")
+
+toolchain_type(name = "toolchain_type")
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
 )
 
-config_setting(
-    name = "darwin",
-    values = {"host_cpu": "darwin"},
+d_toolchain(
+    name = "dmd_linux_x86_64",
+    d_compiler = "@dmd_linux_x86_64//:dmd",
+    libphobos = "@dmd_linux_x86_64//:libphobos2",
+    libphobos_src = "@dmd_linux_x86_64//:phobos_src",
+    druntime_src = "@dmd_linux_x86_64//:druntime_src",
 )
 
-config_setting(
-    name = "k8",
-    values = {"host_cpu": "k8"},
+toolchain(
+    name = "dmd_linux_x86_64_toolchain",
+    exec_compatible_with = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+    target_compatible_with = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+    toolchain = ":dmd_linux_x86_64",
+    toolchain_type = D_TOOLCHAIN,
 )
 
-config_setting(
-    name = "x64_windows",
-    values = {"host_cpu": "x64_windows"},
-)
-
-filegroup(
-    name = "dmd",
-    srcs = select({
-        ":darwin": ["@dmd_darwin_x86_64//:dmd"],
-        ":k8": ["@dmd_linux_x86_64//:dmd"],
-        ":x64_windows": ["@dmd_windows_x86_64//:dmd"],
-    }),
-)
-
-filegroup(
-    name = "libphobos2",
-    srcs = select({
-        ":darwin": ["@dmd_darwin_x86_64//:libphobos2"],
-        ":k8": ["@dmd_linux_x86_64//:libphobos2"],
-        ":x64_windows": ["@dmd_windows_x86_64//:libphobos2"],
-    }),
-)
-
-filegroup(
-    name = "phobos-src",
-    srcs = select({
-        ":darwin": ["@dmd_darwin_x86_64//:phobos-src"],
-        ":k8": ["@dmd_linux_x86_64//:phobos-src"],
-        ":x64_windows": ["@dmd_windows_x86_64//:phobos-src"],
-    }),
-)
-
-filegroup(
-    name = "druntime-import-src",
-    srcs = select({
-        ":darwin": ["@dmd_darwin_x86_64//:druntime-import-src"],
-        ":k8": ["@dmd_linux_x86_64//:druntime-import-src"],
-        ":x64_windows": ["@dmd_windows_x86_64//:druntime-import-src"],
-    }),
-)
