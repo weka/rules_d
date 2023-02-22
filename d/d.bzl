@@ -14,7 +14,6 @@
 
 """D rules for Bazel."""
 
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load("//d:toolchain.bzl", "D_TOOLCHAIN")
 
 def _is_windows(ctx):
@@ -98,6 +97,9 @@ def _build_import(label, im):
 def _build_compile_arglist(ctx, out, depinfo, extra_flags = []):
     """Returns a list of strings constituting the D compile command arguments."""
     toolchain = ctx.toolchains[D_TOOLCHAIN]
+    isDMD = toolchain.ctype == "dmd"
+    version_flag = "-version" if isDMD else "-d-version"
+
     return (
         _compilation_mode_flags(ctx) +
         extra_flags + [
@@ -108,9 +110,9 @@ def _build_compile_arglist(ctx, out, depinfo, extra_flags = []):
         ["-I%s" % _build_import(ctx.label, im) for im in ctx.attr.imports] +
         ["-I%s" % im for im in depinfo.imports] +
         # toolchain.import_flags +
-        ["-version=Have_%s" % _format_version(ctx.label.name)] +
-        ["-version=%s" % v for v in ctx.attr.versions] +
-        ["-version=%s" % v for v in depinfo.versions]
+        [version_flag + "=Have_%s" % _format_version(ctx.label.name)] +
+        [version_flag + "=%s" % v for v in ctx.attr.versions] +
+        [version_flag + "=%s" % v for v in depinfo.versions]
     )
 
 def _build_link_arglist(ctx, objs, out, depinfo):
@@ -200,7 +202,7 @@ def _d_library_impl(ctx):
     d_lib = ctx.actions.declare_file((ctx.label.name + ".lib") if _is_windows(ctx) else ("lib" + ctx.label.name + ".a"))
 
     # Dependencies
-    deps = ctx.attr.deps + [toolchain.libphobos]
+    deps = ctx.attr.deps + [toolchain.libphobos] + ([toolchain.druntime] if toolchain.druntime != None else [])
     depinfo = _setup_deps(ctx, ctx.attr.deps, ctx.label.name, d_lib.dirname)
 
     # Build compile command.
@@ -263,7 +265,7 @@ def _d_binary_impl_common(ctx, extra_flags = []):
     d_obj = ctx.actions.declare_file(ctx.label.name + (".obj" if _is_windows(ctx) else ".o"))
 
     # Dependencies
-    deps = ctx.attr.deps + [toolchain.libphobos]
+    deps = ctx.attr.deps + [toolchain.libphobos] + ([toolchain.druntime] if toolchain.druntime != None else [])
     depinfo = _setup_deps(ctx, deps, ctx.label.name, d_bin.dirname)
 
     # Build compile command
@@ -534,35 +536,3 @@ d_docs = rule(
     toolchains = [D_TOOLCHAIN],
 )
 
-DMD_BUILD_FILE = "//d:DMD.bzl"
-
-def d_repositories():
-    http_archive(
-        name = "dmd_linux_x86_64",
-        urls = [
-            "http://downloads.dlang.org/releases/2021/dmd.2.097.1.linux.tar.xz",
-        ],
-        sha256 = "030fd1bc3b7308dadcf08edc1529d4a2e46496d97ee92ed532b246a0f55745e6",
-        strip_prefix = "dmd2",
-        build_file = DMD_BUILD_FILE,
-    )
-
-    http_archive(
-        name = "dmd_darwin_x86_64",
-        urls = [
-            "http://downloads.dlang.org/releases/2021/dmd.2.097.1.osx.tar.xz",
-        ],
-        sha256 = "383a5524266417bcdd3126da947be7caebd4730f789021e9ec26d869c8448f6a",
-        strip_prefix = "dmd2",
-        build_file = DMD_BUILD_FILE,
-    )
-
-    http_archive(
-        name = "dmd_windows_x86_64",
-        urls = [
-            "http://downloads.dlang.org/releases/2021/dmd.2.097.1.windows.zip",
-        ],
-        sha256 = "63a00e624bf23ab676c543890a93b5325d6ef6b336dee2a2f739f2bbcef7ef1f",
-        strip_prefix = "dmd2",
-        build_file = DMD_BUILD_FILE,
-    )

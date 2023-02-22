@@ -23,7 +23,7 @@ cc_import(
         "@bazel_tools//src/conditions:darwin": "osx/lib/dmd",
         "@bazel_tools//src/conditions:linux_x86_64": "linux/lib64/libphobos2.a",
         "@bazel_tools//src/conditions:windows_x64": "windows/lib64/dmd.exe",
-    })
+    }),
 )
 
 filegroup(

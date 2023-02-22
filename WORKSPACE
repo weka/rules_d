@@ -12,9 +12,5 @@ http_archive(
 load("@bazel_skylib//:workspace.bzl", "bazel_skylib_workspace")
 bazel_skylib_workspace()
 
-load("@io_bazel_rules_d//d:d.bzl", "d_repositories")
-d_repositories()
-
-register_toolchains(
-    "//d:dmd_linux_x86_64_toolchain",
-)
+load("@io_bazel_rules_d//d:repositories.bzl", "rules_d_toolchains")
+rules_d_toolchains()

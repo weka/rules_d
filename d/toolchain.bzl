@@ -10,6 +10,7 @@ def _d_toolchain_impl(ctx):
         libphobos_src = ctx.attr.libphobos_src,
         druntime = ctx.attr.druntime,
         druntime_src = ctx.attr.druntime_src,
+        ctype = ctx.attr.ctype,
     )
     return [toolchain_info]
 
@@ -29,6 +30,10 @@ d_toolchain = rule(
         "libphobos_src": attr.label(),
         "druntime": attr.label(),
         "druntime_src": attr.label(),
+        "ctype": attr.string(
+            default = "dmd",
+            values = ["dmd", "ldc"]
+        ),
     }
 )
 
