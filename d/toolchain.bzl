@@ -1,4 +1,28 @@
+load("@bazel_skylib//rules:common_settings.bzl", "string_setting")
+
 D_TOOLCHAIN = "@//d:toolchain_type"
+
+# string_setting(
+#     name = "compiler_type",
+#     values = [
+#         "dmd",
+#         "ldc",
+#     ],
+# )
+# 
+# config_setting(
+#     name = "dmd",
+#     flag_values = {
+#         ":compiler_type": "dmd",
+#     },
+# )
+# 
+# config_setting(
+#     name = "ldc",
+#     flag_values = {
+#         ":compiler_type": "ldc",
+#     },
+# )
 
 def _d_toolchain_impl(ctx):
     toolchain_info = platform_common.ToolchainInfo(
@@ -32,8 +56,7 @@ d_toolchain = rule(
         "druntime_src": attr.label(),
         "ctype": attr.string(
             default = "dmd",
-            values = ["dmd", "ldc"]
+            values = ["dmd", "ldc"],
         ),
-    }
+    },
 )
-

@@ -5,7 +5,7 @@ DMD_BUILD_FILE = "//d:DMD.bzl"
 LDC_BUILD_FILE = "//d:LDC.bzl"
 DMD_STRIP_PREFIX = "dmd2"
 
-def fetch_and_register_dmd(version = None):
+def fetch_dmd(version = None):
     if version == None:
         http_archive(
             name = "dmd_linux_x86_64",
@@ -33,7 +33,7 @@ def fetch_and_register_dmd(version = None):
                 "https://downloads.dlang.org/releases/2.x/2.102.1/dmd.2.102.1.windows.zip",
             ],
             sha256 = "a263ffbf6232288fa093c71a43a5cc1cd09ef5a75e7eca385ece16606c245090",
-            strip_prefix = DMD_STRIP_PREFIX,
+            # strip_prefix = DMD_STRIP_PREFIX,
             build_file = DMD_BUILD_FILE,
         )
 
@@ -68,13 +68,10 @@ def fetch_and_register_dmd(version = None):
             build_file = DMD_BUILD_FILE,
         )
 
-        native.register_toolchains(
-            "//d:dmd_linux_x86_64_toolchain",
-        )
     else:
         fail("Sorry, only DMD 2 is supported, but got %s. Maybe consider switching to D2?" % version)
 
-def fetch_and_register_ldc():
+def fetch_ldc(version = None):
     http_archive(
         name = "ldc_linux_x86_64",
         urls = [
@@ -85,14 +82,22 @@ def fetch_and_register_ldc():
         build_file = LDC_BUILD_FILE,
     )
 
-    native.register_toolchains(
-        "//d:ldc_linux_x86_64_toolchain",
-    )
-
 def rules_d_toolchains(ctype = "dmd", version = None):
     if ctype == "dmd":
-        fetch_and_register_dmd(version = version)
+        fetch_dmd(version = version)
+        fetch_ldc()
+
+        native.register_toolchains(
+            "//d:dmd_linux_x86_64_toolchain",
+            "//d:dmd_darwin_x86_64_toolchain",
+            "//d:dmd_windows_x86_64_toolchain",
+        )
     elif ctype == "ldc":
-        fetch_and_register_ldc()
+        fetch_dmd()
+        fetch_ldc(version = version)
+
+        native.register_toolchains(
+            "//d:ldc_linux_x86_64_toolchain",
+        )
     else:
         fail("Only \"dmd\" and \"ldc\" compilers are supported at this moment.")

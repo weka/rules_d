@@ -10,6 +10,7 @@ native_binary(
         "@bazel_tools//src/conditions:linux_x86_64": "bin/ldc2",
         "@bazel_tools//src/conditions:windows_x64": "bin/ldc2.exe",
     }),
+    # TODO: add the conf files to `data` field.
 )
 
 cc_import(

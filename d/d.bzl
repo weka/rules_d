@@ -35,31 +35,6 @@ def _files_directory(files):
             dir = f.dirname
     return dir
 
-# def _d_toolchain(ctx):
-#     """Returns a struct containing info about the D toolchain.
-# 
-#     Args:
-#       ctx: The ctx object.
-# 
-#     Return:
-#       Struct containing the following fields:
-#         d_compiler_path: The path to the D compiler.
-#         link_flags: Linker (-L) flags for adding the standard library to the
-#             library search paths.
-#         import_flags: import (-I) flags for adding the standard library sources
-#             to the import paths.
-#     """
-# 
-#     d_compiler_path = ctx.file._d_compiler.path
-#     return struct(
-#         d_compiler_path = d_compiler_path,
-#         link_flags = [("-L/LIBPATH:" if _is_windows(ctx) else "-L-L") + ctx.files._d_stdlib[0].dirname],
-#         import_flags = [
-#             "-I" + _files_directory(ctx.files._d_stdlib_src),
-#             "-I" + _files_directory(ctx.files._d_runtime_import_src),
-#         ],
-#     )
-
 COMPILATION_MODE_FLAGS_POSIX = {
     "fastbuild": ["-g"],
     "dbg": ["-debug", "-g"],
@@ -69,8 +44,13 @@ COMPILATION_MODE_FLAGS_POSIX = {
 COMPILATION_MODE_FLAGS_WINDOWS = {
     "fastbuild": ["-g", "-m64", "-mscrtlib=msvcrt"],
     "dbg": ["-debug", "-g", "-m64", "-mscrtlib=msvcrtd"],
-    "opt": ["-checkaction=halt", "-boundscheck=safeonly", "-O",
-        "-m64", "-mscrtlib=msvcrt"],
+    "opt": [
+        "-checkaction=halt",
+        "-boundscheck=safeonly",
+        "-O",
+        "-m64",
+        "-mscrtlib=msvcrt",
+    ],
 }
 
 def _compilation_mode_flags(ctx):
@@ -454,9 +434,9 @@ def _d_docs_impl(ctx):
     )
 
     toolchain_files = [
-        toolchain.libphobos,
-        toolchain.libphobos_src,
-        toolchain.druntime_src,
+        toolchain.libphobos.files,
+        toolchain.libphobos_src.files,
+        toolchain.druntime_src.files,
     ]
 
     ddoc_inputs = depset(target.srcs, transitive = [target.transitive_srcs] + toolchain_files)
@@ -535,4 +515,3 @@ d_docs = rule(
     },
     toolchains = [D_TOOLCHAIN],
 )
-
