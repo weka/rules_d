@@ -33,7 +33,7 @@ def fetch_dmd(version = None):
                 "https://downloads.dlang.org/releases/2.x/2.102.1/dmd.2.102.1.windows.zip",
             ],
             sha256 = "a263ffbf6232288fa093c71a43a5cc1cd09ef5a75e7eca385ece16606c245090",
-            # strip_prefix = DMD_STRIP_PREFIX,
+            strip_prefix = DMD_STRIP_PREFIX,
             build_file = DMD_BUILD_FILE,
         )
 
