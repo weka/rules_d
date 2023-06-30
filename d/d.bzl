@@ -77,8 +77,7 @@ def _build_import(label, im):
 def _build_compile_arglist(ctx, out, depinfo, extra_flags = []):
     """Returns a list of strings constituting the D compile command arguments."""
     toolchain = ctx.toolchains[D_TOOLCHAIN]
-    isDMD = toolchain.ctype == "dmd"
-    version_flag = "-version" if isDMD else "-d-version"
+    version_flag = toolchain.version_flag
 
     return (
         _compilation_mode_flags(ctx) +

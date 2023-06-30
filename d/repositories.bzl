@@ -91,6 +91,7 @@ def rules_d_toolchains(ctype = "dmd", version = None):
             "//d:dmd_linux_x86_64_toolchain",
             "//d:dmd_darwin_x86_64_toolchain",
             "//d:dmd_windows_x86_64_toolchain",
+            "//d:ldc_linux_x86_64_toolchain",
         )
     elif ctype == "ldc":
         fetch_dmd()
