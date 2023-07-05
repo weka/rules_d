@@ -514,3 +514,84 @@ d_docs = rule(
     },
     toolchains = [D_TOOLCHAIN],
 )
+
+DMD_BUILD_FILE = """
+package(default_visibility = ["//visibility:public"])
+
+config_setting(
+    name = "darwin",
+    values = {"host_cpu": "darwin"},
+)
+
+config_setting(
+    name = "k8",
+    values = {"host_cpu": "k8"},
+)
+
+config_setting(
+    name = "x64_windows",
+    values = {"host_cpu": "x64_windows"},
+)
+
+filegroup(
+    name = "dmd",
+    srcs = select({
+        ":darwin": ["dmd2/osx/bin/dmd"],
+        ":k8": ["dmd2/linux/bin64/dmd"],
+        ":x64_windows": ["dmd2/windows/bin64/dmd.exe"],
+    }),
+)
+
+filegroup(
+    name = "libphobos2",
+    srcs = select({
+        ":darwin": ["dmd2/osx/lib/libphobos2.a"],
+        ":k8": [
+            "dmd2/linux/lib64/libphobos2.a",
+            "dmd2/linux/lib64/libphobos2.so",
+        ],
+        ":x64_windows": ["dmd2/windows/lib64/phobos64.lib"],
+    }),
+)
+
+filegroup(
+    name = "phobos-src",
+    srcs = glob(["dmd2/src/phobos/**/*.*"]),
+)
+
+filegroup(
+    name = "druntime-import-src",
+    srcs = glob([
+        "dmd2/src/druntime/import/*.*",
+        "dmd2/src/druntime/import/**/*.*",
+    ]),
+)
+"""
+
+def d_repositories():
+    http_archive(
+        name = "dmd_linux_x86_64",
+        urls = [
+            "https://downloads.dlang.org/releases/2.x/2.101.2/dmd.2.101.2.linux.tar.xz",
+        ],
+        sha256 = "95d96731853805a8a026324240f8ea7bd871927f6a405d14268408685bbbdc5c",
+        build_file_content = DMD_BUILD_FILE,
+    )
+
+    http_archive(
+        name = "dmd_darwin_x86_64",
+        urls = [
+            "https://downloads.dlang.org/releases/2.x/2.101.2/dmd.2.101.2.osx.tar.xz",
+        ],
+        sha256 = "45bbe0d0e500faee5c84aaa5b124553671f1cec06a711860647cfaa7016aeb56",
+        build_file_content = DMD_BUILD_FILE,
+    )
+
+    http_archive(
+        name = "dmd_windows_x86_64",
+        urls = [
+            "https://downloads.dlang.org/releases/2.x/2.101.2/dmd.2.101.2.windows.zip",
+        ],
+        sha256 = "8065df7316e4d2d9e1f322998ec16b4b52c5c966dc3e7220159ba4029d5b97ba",
+        build_file_content = DMD_BUILD_FILE,
+    )
