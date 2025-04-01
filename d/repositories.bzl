@@ -27,15 +27,15 @@ def fetch_dmd(version = None):
             build_file = DMD_BUILD_FILE,
         )
 
-        http_archive(
-            name = "dmd_windows_x86_64",
-            urls = [
-                "https://downloads.dlang.org/releases/2.x/2.102.1/dmd.2.102.1.windows.zip",
-            ],
-            sha256 = "a263ffbf6232288fa093c71a43a5cc1cd09ef5a75e7eca385ece16606c245090",
-            strip_prefix = DMD_STRIP_PREFIX,
-            build_file = DMD_BUILD_FILE,
-        )
+        # http_archive(
+        #     name = "dmd_windows_x86_64",
+        #     urls = [
+        #         "https://downloads.dlang.org/releases/2.x/2.102.1/dmd.2.102.1.windows.zip",
+        #     ],
+        #     sha256 = "a263ffbf6232288fa093c71a43a5cc1cd09ef5a75e7eca385ece16606c245090",
+        #     strip_prefix = DMD_STRIP_PREFIX,
+        #     build_file = DMD_BUILD_FILE,
+        # )
 
         native.register_toolchains(
             "//d:dmd_linux_x86_64_toolchain",
@@ -90,7 +90,7 @@ def rules_d_toolchains(ctype = "dmd", version = None):
         native.register_toolchains(
             "//d:dmd_linux_x86_64_toolchain",
             "//d:dmd_darwin_x86_64_toolchain",
-            "//d:dmd_windows_x86_64_toolchain",
+            # "//d:dmd_windows_x86_64_toolchain",
             "//d:ldc_linux_x86_64_toolchain",
         )
     elif ctype == "ldc":

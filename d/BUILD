@@ -16,7 +16,7 @@ filegroup(
     libphobos = "@dmd_" + os + "_x86_64//:libphobos2",
     libphobos_src = "@dmd_" + os + "_x86_64//:phobos_src",
     version_flag = "-version",
-) for os in ["linux", "darwin", "windows"]]
+) for os in ["linux", "darwin"]] # , "windows"]]
 
 toolchain(
     name = "dmd_linux_x86_64_toolchain",
@@ -48,20 +48,20 @@ toolchain(
     toolchain_type = D_TOOLCHAIN,
 )
 
-toolchain(
-    name = "dmd_windows_x86_64_toolchain",
-    exec_compatible_with = [
-        "@platforms//os:windows",
-        "@platforms//cpu:x86_64",
-        "@//d/constraints/compiler:dmd",
-    ],
-    target_compatible_with = [
-        "@platforms//os:windows",
-        "@platforms//cpu:x86_64",
-    ],
-    toolchain = ":dmd_windows_x86_64",
-    toolchain_type = D_TOOLCHAIN,
-)
+# toolchain(
+#     name = "dmd_windows_x86_64_toolchain",
+#     exec_compatible_with = [
+#         "@platforms//os:windows",
+#         "@platforms//cpu:x86_64",
+#         "@//d/constraints/compiler:dmd",
+#     ],
+#     target_compatible_with = [
+#         "@platforms//os:windows",
+#         "@platforms//cpu:x86_64",
+#     ],
+#     toolchain = ":dmd_windows_x86_64",
+#     toolchain_type = D_TOOLCHAIN,
+# )
 
 d_toolchain(
     name = "ldc_linux_x86_64",
