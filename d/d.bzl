@@ -27,6 +27,8 @@ D_FILETYPE = [".d", ".di"]
 
 ZIP_PATH = "/usr/bin/zip"
 
+DInfo = provider()
+
 def _files_directory(files):
     """Returns the shortest parent directory of a list of files."""
     dir = files[0].dirname
@@ -136,24 +138,26 @@ def _setup_deps(ctx, deps, name, working_dir):
     imports = []
     link_flags = []
     for dep in deps:
-        if hasattr(dep, "d_lib"):
+        if DInfo in dep and hasattr(dep[DInfo], "d_lib"):
             # The dependency is a d_library.
-            libs.append(dep.d_lib)
-            transitive_libs.append(dep.transitive_libs)
-            d_srcs += dep.d_srcs
-            transitive_d_srcs.append(dep.transitive_d_srcs)
-            versions += dep.versions + ["Have_%s" % _format_version(dep.label.name)]
-            link_flags.extend(dep.link_flags)
-            imports += [_build_import(dep.label, im) for im in dep.imports]
+            ddep = dep[DInfo]
+            libs.append(ddep.d_lib)
+            transitive_libs.append(ddep.transitive_libs)
+            d_srcs += ddep.d_srcs
+            transitive_d_srcs.append(ddep.transitive_d_srcs)
+            versions += ddep.versions + ["Have_%s" % _format_version(dep.label.name)]
+            link_flags.extend(ddep.link_flags)
+            imports += [_build_import(ddep.label, im) for im in ddep.imports]
 
-        elif hasattr(dep, "d_srcs"):
+        elif DInfo in dep and hasattr(dep[DInfo], "d_srcs"):
             # The dependency is a d_source_library.
-            d_srcs += dep.d_srcs
-            transitive_d_srcs.append(dep.transitive_d_srcs)
-            transitive_libs.append(dep.transitive_libs)
-            link_flags += ["-L%s" % linkopt for linkopt in dep.linkopts]
-            imports += [_build_import(dep.label, im) for im in dep.imports]
-            versions += dep.versions
+            ddep = dep[DInfo]
+            d_srcs += ddep.d_srcs
+            transitive_d_srcs.append(ddep.transitive_d_srcs)
+            transitive_libs.append(ddep.transitive_libs)
+            link_flags += ["-L%s" % linkopt for linkopt in ddep.linkopts]
+            imports += [_build_import(ddep.label, im) for im in ddep.imports]
+            versions += ddep.versions
 
         elif CcInfo in dep:
             # The dependency is a cc_library
@@ -226,16 +230,18 @@ def _d_library_impl(ctx):
         progress_message = "Compiling D library " + ctx.label.name,
     )
 
-    return struct(
-        files = depset([d_lib]),
-        d_srcs = ctx.files.srcs,
-        transitive_d_srcs = depset(depinfo.d_srcs),
-        transitive_libs = depset(transitive = [depinfo.libs, depinfo.transitive_libs]),
-        link_flags = depinfo.link_flags,
-        versions = ctx.attr.versions,
-        imports = ctx.attr.imports,
-        d_lib = d_lib,
-    )
+    return [
+        DInfo(
+            files = depset([d_lib]),
+            d_srcs = ctx.files.srcs,
+            transitive_d_srcs = depset(depinfo.d_srcs),
+            transitive_libs = depset(transitive = [depinfo.libs, depinfo.transitive_libs]),
+            link_flags = depinfo.link_flags,
+            versions = ctx.attr.versions,
+            imports = ctx.attr.imports,
+            d_lib = d_lib,
+        ),
+    ]
 
 def _d_binary_impl_common(ctx, extra_flags = []):
     """Common implementation for rules that build a D binary."""
@@ -309,12 +315,16 @@ def _d_binary_impl_common(ctx, extra_flags = []):
         progress_message = "Linking D binary " + ctx.label.name,
     )
 
-    return struct(
-        d_srcs = ctx.files.srcs,
-        transitive_d_srcs = depset(depinfo.d_srcs),
-        imports = ctx.attr.imports,
-        executable = d_bin,
-    )
+    return [
+        DInfo(
+            d_srcs = ctx.files.srcs,
+            transitive_d_srcs = depset(depinfo.d_srcs),
+            imports = ctx.attr.imports,
+        ),
+        DefaultInfo(
+            executable = d_bin,
+        ),
+    ]
 
 def _d_binary_impl(ctx):
     """Implementation of the d_binary rule."""
@@ -355,13 +365,14 @@ def _d_source_library_impl(ctx):
     transitive_linkopts = depset()
     transitive_versions = depset()
     for dep in ctx.attr.deps:
-        if hasattr(dep, "d_srcs"):
+        if DInfo in dep and hasattr(dep[DInfo], "d_srcs"):
             # Dependency is another d_source_library target.
-            transitive_d_srcs.append(dep.d_srcs)
-            transitive_imports = depset(dep.imports, transitive = [transitive_imports])
-            transitive_linkopts = depset(dep.linkopts, transitive = [transitive_linkopts])
-            transitive_versions = depset(dep.versions, transitive = [transitive_versions])
-            transitive_transitive_libs.append(dep.transitive_libs)
+            ddep = dep[DInfo]
+            transitive_d_srcs.append(ddep.d_srcs)
+            transitive_imports = depset(ddep.imports, transitive = [transitive_imports])
+            transitive_linkopts = depset(ddep.linkopts, transitive = [transitive_linkopts])
+            transitive_versions = depset(ddep.versions, transitive = [transitive_versions])
+            transitive_transitive_libs.append(ddep.transitive_libs)
 
         elif CcInfo in dep:
             # Dependency is a cc_library target.
@@ -372,14 +383,16 @@ def _d_source_library_impl(ctx):
             fail("d_source_library can only depend on other " +
                  "d_source_library or cc_library targets.", "deps")
 
-    return struct(
-        d_srcs = ctx.files.srcs,
-        transitive_d_srcs = depset(transitive = transitive_d_srcs, order = "postorder"),
-        transitive_libs = depset(transitive_libs, transitive = transitive_transitive_libs),
-        imports = ctx.attr.imports + transitive_imports.to_list(),
-        linkopts = ctx.attr.linkopts + transitive_linkopts.to_list(),
-        versions = ctx.attr.versions + transitive_versions.to_list(),
-    )
+    return [
+        DInfo(
+            d_srcs = ctx.files.srcs,
+            transitive_d_srcs = depset(transitive = transitive_d_srcs, order = "postorder"),
+            transitive_libs = depset(transitive_libs, transitive = transitive_transitive_libs),
+            imports = ctx.attr.imports + transitive_imports.to_list(),
+            linkopts = ctx.attr.linkopts + transitive_linkopts.to_list(),
+            versions = ctx.attr.versions + transitive_versions.to_list(),
+        ),
+    ]
 
 # TODO(dzc): Use ddox for generating HTML documentation.
 def _d_docs_impl(ctx):
@@ -397,9 +410,9 @@ def _d_docs_impl(ctx):
 
     target = struct(
         name = ctx.attr.dep.label.name,
-        srcs = ctx.attr.dep.d_srcs,
-        transitive_srcs = ctx.attr.dep.transitive_d_srcs,
-        imports = ctx.attr.dep.imports,
+        srcs = ctx.attr.dep[DInfo].d_srcs,
+        transitive_srcs = ctx.attr.dep[DInfo].transitive_d_srcs,
+        imports = ctx.attr.dep[DInfo].imports,
     )
 
     toolchain = ctx.toolchains[D_TOOLCHAIN]
