@@ -15,3 +15,7 @@ constraint_value(
     constraint_setting = ":d_compiler",
 )
 
+constraint_value(
+    name = "weka-ldc",
+    constraint_setting = ":d_compiler",
+)

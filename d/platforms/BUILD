@@ -16,3 +16,10 @@ platform(
     ],
 )
 
+platform(
+    name = "weka-ldc",
+    parents = ["@local_config_platform//:host"],
+    constraint_values = [
+        "//d/constraints/compiler:weka-ldc",
+    ],
+)

@@ -11,5 +11,5 @@ bazel_dep(
 bazel_dep(name="platforms", version="0.0.11")
 
 non_module_dependencies = use_extension("//d:extensions.bzl", "non_module_dependencies")
-use_repo(non_module_dependencies, "ldc_linux_x86_64", "dmd_linux_x86_64", "dmd_darwin_x86_64")
-register_toolchains("//d:ldc_linux_x86_64_toolchain", "//d:dmd_linux_x86_64_toolchain", "//d:dmd_darwin_x86_64_toolchain")
+use_repo(non_module_dependencies, "ldc_linux_x86_64", "dmd_linux_x86_64", "dmd_darwin_x86_64", "weka_ldc_linux_x86_64")
+register_toolchains("//d:ldc_linux_x86_64_toolchain", "//d:dmd_linux_x86_64_toolchain", "//d:dmd_darwin_x86_64_toolchain", "//d:weka_ldc_linux_x86_64_toolchain")

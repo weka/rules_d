@@ -79,14 +79,33 @@ def fetch_ldc(version = None):
         build_file = LDC_BUILD_FILE,
     )
 
+def fetch_weka_ldc(version = "1.30-weka17-ctfe-attr"):
+    http_archive(
+        name = "weka_ldc_linux_x86_64",
+        urls = [
+            "https://github.com/yanok/ldc/releases/download/v{version}/ldc2-{version}-linux-x86_64.tar.xz".format(version = version),
+        ],
+        sha256 = "30fcca329dcaa7a15e2dfa7828c07e462b438a106b706aa5a20e2a8ea1570e0c",
+        strip_prefix = "ldc2-{version}-linux-x86_64".format(version = version),
+        build_file = LDC_BUILD_FILE,
+    )
+
 def rules_d_toolchains(ctype = "dmd", version = None):
     if ctype == "dmd":
         fetch_dmd(version = version)
         fetch_ldc()
+        fetch_weka_ldc()
 
     elif ctype == "ldc":
         fetch_dmd()
         fetch_ldc(version = version)
+        fetch_weka_ldc()
+    
+    elif ctype == "weka-ldc":
+        # Special case for Weka LDC, which is a fork of LDC
+        fetch_weka_ldc(version = version)
+        fetch_dmd()
+        fetch_ldc()
 
     else:
-        fail("Only \"dmd\" and \"ldc\" compilers are supported at this moment.")
+        fail("Only \"dmd\", \"ldc\" and \"weka-ldc\" compilers are supported at this moment.")
