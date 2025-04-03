@@ -193,7 +193,7 @@ def _d_library_impl(ctx):
         ctx = ctx,
         out = d_lib,
         depinfo = depinfo,
-        extra_flags = ["-lib"],
+        extra_flags = ["-lib", "-oq"],
     )
 
     # Convert sources to args
