@@ -147,7 +147,7 @@ def _setup_deps(ctx, deps, name, working_dir):
             transitive_d_srcs.append(ddep.transitive_d_srcs)
             versions += ddep.versions + ["Have_%s" % _format_version(dep.label.name)]
             link_flags.extend(ddep.link_flags)
-            imports += [_build_import(ddep.label, im) for im in ddep.imports]
+            imports += [_build_import(dep.label, im) for im in ddep.imports]
 
         elif DInfo in dep and hasattr(dep[DInfo], "d_srcs"):
             # The dependency is a d_source_library.
@@ -156,7 +156,7 @@ def _setup_deps(ctx, deps, name, working_dir):
             transitive_d_srcs.append(ddep.transitive_d_srcs)
             transitive_libs.append(ddep.transitive_libs)
             link_flags += ["-L%s" % linkopt for linkopt in ddep.linkopts]
-            imports += [_build_import(ddep.label, im) for im in ddep.imports]
+            imports += [_build_import(dep.label, im) for im in ddep.imports]
             versions += ddep.versions
 
         elif CcInfo in dep:
