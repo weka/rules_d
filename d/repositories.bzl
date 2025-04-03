@@ -37,9 +37,6 @@ def fetch_dmd(version = None):
         #     build_file = DMD_BUILD_FILE,
         # )
 
-        native.register_toolchains(
-            "//d:dmd_linux_x86_64_toolchain",
-        )
     elif versions.is_at_least("2.0.0", version):
         http_archive(
             name = "dmd_linux_x86_64",
@@ -87,18 +84,9 @@ def rules_d_toolchains(ctype = "dmd", version = None):
         fetch_dmd(version = version)
         fetch_ldc()
 
-        native.register_toolchains(
-            "//d:dmd_linux_x86_64_toolchain",
-            "//d:dmd_darwin_x86_64_toolchain",
-            # "//d:dmd_windows_x86_64_toolchain",
-            "//d:ldc_linux_x86_64_toolchain",
-        )
     elif ctype == "ldc":
         fetch_dmd()
         fetch_ldc(version = version)
 
-        native.register_toolchains(
-            "//d:ldc_linux_x86_64_toolchain",
-        )
     else:
         fail("Only \"dmd\" and \"ldc\" compilers are supported at this moment.")
