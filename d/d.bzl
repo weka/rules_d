@@ -231,8 +231,10 @@ def _d_library_impl(ctx):
     )
 
     return [
-        DInfo(
+        DefaultInfo(
             files = depset([d_lib]),
+        ),
+        DInfo(
             d_srcs = ctx.files.srcs,
             transitive_d_srcs = depset(depinfo.d_srcs),
             transitive_libs = depset(transitive = [depinfo.libs, depinfo.transitive_libs]),
