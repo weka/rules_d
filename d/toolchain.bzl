@@ -1,6 +1,6 @@
 load("@bazel_skylib//rules:common_settings.bzl", "string_setting")
 
-D_TOOLCHAIN = "@//d:toolchain_type"
+D_TOOLCHAIN = "//d:toolchain_type"
 
 # string_setting(
 #     name = "compiler_type",

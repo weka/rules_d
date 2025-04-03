@@ -23,7 +23,7 @@ toolchain(
     exec_compatible_with = [
         "@platforms//os:linux",
         "@platforms//cpu:x86_64",
-        "@//d/constraints/compiler:dmd",
+        "//d/constraints/compiler:dmd",
     ],
     target_compatible_with = [
         "@platforms//os:linux",
@@ -38,7 +38,7 @@ toolchain(
     exec_compatible_with = [
         "@platforms//os:macos",
         "@platforms//cpu:x86_64",
-        "@//d/constraints/compiler:dmd",
+        "//d/constraints/compiler:dmd",
     ],
     target_compatible_with = [
         "@platforms//os:macos",
@@ -53,7 +53,7 @@ toolchain(
 #     exec_compatible_with = [
 #         "@platforms//os:windows",
 #         "@platforms//cpu:x86_64",
-#         "@//d/constraints/compiler:dmd",
+#         "//d/constraints/compiler:dmd",
 #     ],
 #     target_compatible_with = [
 #         "@platforms//os:windows",
@@ -78,7 +78,7 @@ toolchain(
     exec_compatible_with = [
         "@platforms//os:linux",
         "@platforms//cpu:x86_64",
-        "@//d/constraints/compiler:ldc",
+        "//d/constraints/compiler:ldc",
     ],
     target_compatible_with = [
         "@platforms//os:linux",
