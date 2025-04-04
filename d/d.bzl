@@ -367,8 +367,9 @@ def _d_source_library_impl(ctx):
     transitive_linkopts = depset()
     transitive_versions = depset()
     for dep in ctx.attr.deps:
-        if DInfo in dep and hasattr(dep[DInfo], "d_srcs"):
+        if DInfo in dep and hasattr(dep[DInfo], "d_srcs") and not hasattr(dep[DInfo], "d_lib"):
             # Dependency is another d_source_library target.
+            # TODO: Could we also support d_library here?
             ddep = dep[DInfo]
             transitive_d_srcs.append(ddep.d_srcs)
             transitive_imports = depset(ddep.imports, transitive = [transitive_imports])
