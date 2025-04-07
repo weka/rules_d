@@ -179,7 +179,7 @@ def _setup_deps(ctx, deps, name, working_dir):
         link_flags = depset(link_flags).to_list(),
     )
 
-def _d_library_impl(ctx):
+def _d_library_impl_common(ctx, extra_flags = []):
     """Implementation of the d_library rule."""
     toolchain = ctx.toolchains[D_TOOLCHAIN]
     d_lib = ctx.actions.declare_file((ctx.label.name + ".lib") if _is_windows(ctx) else ("lib" + ctx.label.name + ".a"))
@@ -193,7 +193,7 @@ def _d_library_impl(ctx):
         ctx = ctx,
         out = d_lib,
         depinfo = depinfo,
-        extra_flags = toolchain.lib_flags,
+        extra_flags = toolchain.lib_flags + extra_flags,
     )
 
     # Convert sources to args
@@ -327,6 +327,15 @@ def _d_binary_impl_common(ctx, extra_flags = []):
             executable = d_bin,
         ),
     ]
+
+def _d_library_impl(ctx):
+    """Implementation of the d_library rule."""
+    return _d_library_impl_common(ctx)
+
+def _d_test_library_impl(ctx):
+    """Implementation of the d_test_library rule."""
+    # A test library is just a d_library with testonly=True
+    return _d_library_impl_common(ctx, extra_flags=["-unittest"])
 
 def _d_binary_impl(ctx):
     """Implementation of the d_binary rule."""
@@ -493,6 +502,12 @@ _d_common_attrs = {
 
 d_library = rule(
     _d_library_impl,
+    attrs = dict(_d_common_attrs.items()),
+    toolchains = [D_TOOLCHAIN],
+)
+
+d_test_library = rule(
+    _d_test_library_impl,
     attrs = dict(_d_common_attrs.items()),
     toolchains = [D_TOOLCHAIN],
 )
