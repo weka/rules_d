@@ -71,6 +71,9 @@ d_toolchain(
     libphobos = "@ldc_linux_x86_64//:libphobos2",
     libphobos_src = "@ldc_linux_x86_64//:phobos_src",
     version_flag = "--d-version",
+    lib_flags = [
+        "-lib", "-oq",
+    ],
 )
 
 toolchain(
@@ -96,6 +99,9 @@ d_toolchain(
     libphobos = "@weka_ldc_linux_x86_64//:libphobos2",
     libphobos_src = "@weka_ldc_linux_x86_64//:phobos_src",
     version_flag = "--d-version",
+    lib_flags = [
+        "-lib", "-oq",
+    ],
 )
 
 toolchain(

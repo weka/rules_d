@@ -28,6 +28,7 @@ def _d_toolchain_impl(ctx):
     toolchain_info = platform_common.ToolchainInfo(
         name = ctx.label.name,
         d_compiler = ctx.attr.d_compiler,
+        lib_flags = ctx.attr.lib_flags,
         link_flags = ctx.attr.link_flags,
         import_flags = ctx.attr.import_flags,
         libphobos = ctx.attr.libphobos,
@@ -45,6 +46,9 @@ d_toolchain = rule(
             executable = True,
             # allow_files = True,
             cfg = "host",
+        ),
+        "lib_flags": attr.string_list(
+            default = ["-lib"],
         ),
         "link_flags": attr.string_list(
             default = [],
