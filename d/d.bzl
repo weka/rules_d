@@ -371,7 +371,7 @@ def _d_source_library_impl(ctx):
             # Dependency is another d_source_library target.
             # TODO: Could we also support d_library here?
             ddep = dep[DInfo]
-            transitive_d_srcs.append(ddep.d_srcs)
+            transitive_d_srcs.append(depset(ddep.d_srcs))
             transitive_imports = depset(ddep.imports, transitive = [transitive_imports])
             transitive_linkopts = depset(ddep.linkopts, transitive = [transitive_linkopts])
             transitive_versions = depset(ddep.versions, transitive = [transitive_versions])
