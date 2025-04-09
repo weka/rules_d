@@ -90,6 +90,8 @@ def _build_compile_arglist(ctx, out, depinfo, extra_flags = []):
         (["-I."] if ctx.attr.include_workspace_root else []) +
         ["-I%s" % _build_import(ctx.label, im) for im in ctx.attr.imports] +
         ["-I%s" % im for im in depinfo.imports] +
+        ["-J%s" % _build_import(ctx.label, im) for im in ctx.attr.string_imports] +
+        ["-J%s" % im for im in depinfo.string_imports] +
         # toolchain.import_flags +
         [version_flag + "=Have_%s" % _format_version(ctx.label.name)] +
         [version_flag + "=%s" % v for v in ctx.attr.versions] +
@@ -127,15 +129,20 @@ def _setup_deps(ctx, deps, name, working_dir):
         versions: List of D versions to be used for compiling the target.
         imports: List of Strings containing input paths that will be passed
             to the D compiler via -I flags.
+        string_imports: List of strings containing input paths that will be
+            passed to the D compiler via -J flags.
         link_flags: List of linker flags.
     """
 
     libs = []
     transitive_libs = []
     d_srcs = []
+    extra_files = []
     transitive_d_srcs = []
+    transitive_extra_files = []
     versions = []
     imports = []
+    string_imports = []
     link_flags = []
     for dep in deps:
         if DInfo in dep and hasattr(dep[DInfo], "d_lib"):
@@ -145,18 +152,24 @@ def _setup_deps(ctx, deps, name, working_dir):
             transitive_libs.append(ddep.transitive_libs)
             d_srcs += ddep.d_srcs
             transitive_d_srcs.append(ddep.transitive_d_srcs)
+            extra_files += ddep.extra_files
+            transitive_extra_files.append(ddep.transitive_extra_files)
             versions += ddep.versions + ["Have_%s" % _format_version(dep.label.name)]
             link_flags.extend(ddep.link_flags)
             imports += [_build_import(dep.label, im) for im in ddep.imports]
+            string_imports += [_build_import(dep.label, im) for im in ddep.string_imports]
 
         elif DInfo in dep and hasattr(dep[DInfo], "d_srcs"):
             # The dependency is a d_source_library.
             ddep = dep[DInfo]
             d_srcs += ddep.d_srcs
             transitive_d_srcs.append(ddep.transitive_d_srcs)
+            extra_files += ddep.extra_files
+            transitive_extra_files.append(ddep.transitive_extra_files)
             transitive_libs.append(ddep.transitive_libs)
             link_flags += ["-L%s" % linkopt for linkopt in ddep.linkopts]
             imports += [_build_import(dep.label, im) for im in ddep.imports]
+            string_imports += [_build_import(dep.label, im) for im in ddep.string_imports]
             versions += ddep.versions
 
         elif CcInfo in dep:
@@ -174,8 +187,11 @@ def _setup_deps(ctx, deps, name, working_dir):
         transitive_libs = depset(transitive = transitive_libs),
         d_srcs = depset(d_srcs).to_list(),
         transitive_d_srcs = depset(transitive = transitive_d_srcs),
+        extra_files = depset(extra_files).to_list(),
+        transitive_extra_files = depset(transitive = transitive_extra_files),
         versions = versions,
         imports = depset(imports).to_list(),
+        string_imports = depset(string_imports).to_list(),
         link_flags = depset(link_flags).to_list(),
     )
 
@@ -206,9 +222,12 @@ def _d_library_impl_common(ctx, extra_flags = []):
     # TODO: Should they be in transitive?
     compile_inputs = depset(
         ctx.files.srcs +
-        depinfo.d_srcs,
+        depinfo.d_srcs +
+        ctx.files.extra_files +
+        depinfo.extra_files,
         transitive = [
             depinfo.transitive_d_srcs,
+            depinfo.transitive_extra_files,
             depinfo.libs,
             depinfo.transitive_libs,
             toolchain.libphobos.files,
@@ -237,10 +256,13 @@ def _d_library_impl_common(ctx, extra_flags = []):
         DInfo(
             d_srcs = ctx.files.srcs,
             transitive_d_srcs = depset(depinfo.d_srcs),
+            extra_files = ctx.files.extra_files,
+            transitive_extra_files = depset(depinfo.extra_files),
             transitive_libs = depset(transitive = [depinfo.libs, depinfo.transitive_libs]),
             link_flags = depinfo.link_flags,
             versions = ctx.attr.versions,
             imports = ctx.attr.imports,
+            string_imports = ctx.attr.string_imports,
             d_lib = d_lib,
         ),
     ]
@@ -279,8 +301,8 @@ def _d_binary_impl_common(ctx, extra_flags = []):
     d_compiler = toolchain.d_compiler.files.to_list()[0]
 
     compile_inputs = depset(
-        ctx.files.srcs + depinfo.d_srcs,
-        transitive = [depinfo.transitive_d_srcs] + toolchain_files,
+        ctx.files.srcs + depinfo.d_srcs + ctx.files.extra_files + depinfo.extra_files,
+        transitive = [depinfo.transitive_d_srcs, depinfo.transitive_extra_files] + toolchain_files,
     )
     ctx.actions.run(
         inputs = compile_inputs,
@@ -321,7 +343,10 @@ def _d_binary_impl_common(ctx, extra_flags = []):
         DInfo(
             d_srcs = ctx.files.srcs,
             transitive_d_srcs = depset(depinfo.d_srcs),
+            extra_files = ctx.files.extra_files,
+            transitive_extra_files = depset(depinfo.extra_files),
             imports = ctx.attr.imports,
+            string_imports = ctx.attr.string_imports,
         ),
         DefaultInfo(
             executable = d_bin,
@@ -370,9 +395,11 @@ def _get_libs_for_static_executable(dep):
 def _d_source_library_impl(ctx):
     """Implementation of the d_source_library rule."""
     transitive_d_srcs = []
+    transitive_extra_files = []
     transitive_libs = []
     transitive_transitive_libs = []
     transitive_imports = depset()
+    transitive_string_imports = depset()
     transitive_linkopts = depset()
     transitive_versions = depset()
     for dep in ctx.attr.deps:
@@ -381,7 +408,9 @@ def _d_source_library_impl(ctx):
             # TODO: Could we also support d_library here?
             ddep = dep[DInfo]
             transitive_d_srcs.append(depset(ddep.d_srcs))
+            transitive_extra_files.append(depset(ddep.extra_files))
             transitive_imports = depset(ddep.imports, transitive = [transitive_imports])
+            transitive_string_imports = depset(ddep.string_imports, transitive = [transitive_string_imports])
             transitive_linkopts = depset(ddep.linkopts, transitive = [transitive_linkopts])
             transitive_versions = depset(ddep.versions, transitive = [transitive_versions])
             transitive_transitive_libs.append(ddep.transitive_libs)
@@ -398,9 +427,12 @@ def _d_source_library_impl(ctx):
     return [
         DInfo(
             d_srcs = ctx.files.srcs,
+            extra_files = ctx.files.extra_files,
             transitive_d_srcs = depset(transitive = transitive_d_srcs, order = "postorder"),
+            transitive_extra_files = depset(transitive = transitive_extra_files, order = "postorder"),
             transitive_libs = depset(transitive_libs, transitive = transitive_transitive_libs),
             imports = ctx.attr.imports + transitive_imports.to_list(),
+            string_imports = ctx.attr.string_imports + transitive_string_imports.to_list(),
             linkopts = ctx.attr.linkopts + transitive_linkopts.to_list(),
             versions = ctx.attr.versions + transitive_versions.to_list(),
         ),
@@ -477,6 +509,8 @@ def _d_docs_impl(ctx):
 _d_common_attrs = {
     "srcs": attr.label_list(allow_files = D_FILETYPE),
     "imports": attr.string_list(),
+    "string_imports": attr.string_list(),
+    "extra_files": attr.label_list(allow_files = True),
     "linkopts": attr.string_list(),
     "versions": attr.string_list(),
     "include_workspace_root": attr.bool(default = True),
