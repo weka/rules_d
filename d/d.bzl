@@ -85,9 +85,9 @@ def _build_compile_arglist(ctx, out, depinfo, extra_flags = []):
         _compilation_mode_flags(ctx) +
         extra_flags + [
             "-of" + out.path,
-            "-I.",
             "-w",
         ] +
+        (["-I."] if ctx.attr.include_workspace_root else []) +
         ["-I%s" % _build_import(ctx.label, im) for im in ctx.attr.imports] +
         ["-I%s" % im for im in depinfo.imports] +
         # toolchain.import_flags +
@@ -479,6 +479,7 @@ _d_common_attrs = {
     "imports": attr.string_list(),
     "linkopts": attr.string_list(),
     "versions": attr.string_list(),
+    "include_workspace_root": attr.bool(default = True),
     "deps": attr.label_list(),
 }
 
