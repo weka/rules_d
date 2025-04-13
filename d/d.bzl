@@ -90,6 +90,7 @@ def _build_compile_arglist(ctx, out, depinfo, extra_flags = []):
     ws_root = gen_dir if ctx.attr.is_generated else "."
     return (
         _compilation_mode_flags(ctx) +
+        toolchain.extra_switches +
         extra_flags + [
             "-of" + out.path,
             "-w",

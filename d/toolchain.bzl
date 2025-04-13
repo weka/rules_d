@@ -36,6 +36,7 @@ def _d_toolchain_impl(ctx):
         druntime = ctx.attr.druntime,
         druntime_src = ctx.attr.druntime_src,
         version_flag = ctx.attr.version_flag,
+        extra_switches = ctx.attr.extra_switches,
     )
     return [toolchain_info]
 
@@ -59,5 +60,6 @@ d_toolchain = rule(
         "druntime": attr.label(),
         "druntime_src": attr.label(),
         "version_flag": attr.string(),
+        "extra_switches": attr.string_list(),
     },
 )
