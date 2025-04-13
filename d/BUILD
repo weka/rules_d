@@ -102,6 +102,12 @@ d_toolchain(
     lib_flags = [
         "-lib", "-oq",
     ],
+    extra_switches = [
+        "-mtriple=x86_64-pc-linux-gnu",
+        "-march=x86-64",
+        "-mcpu=x86-64-v3",
+        "-mattr=",
+    ],
 )
 
 toolchain(
