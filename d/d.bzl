@@ -167,7 +167,7 @@ def _setup_deps(ctx, deps, name, working_dir):
             imports += [_build_import(dep.label, im, gen_dir if ddep.is_generated else None) for im in ddep.imports]
             if ddep.is_generated:
                 imports.append(gen_dir)
-            string_imports += [_build_import(dep.label, im) for im in ddep.string_imports]
+            string_imports += [_build_import(dep.label, im, gen_dir if ddep.is_generated else None) for im in ddep.string_imports]
 
         elif DInfo in dep and hasattr(dep[DInfo], "d_srcs"):
             # The dependency is a d_source_library.
@@ -181,7 +181,7 @@ def _setup_deps(ctx, deps, name, working_dir):
             imports += ddep.imports
             if ddep.is_generated:
                 imports.append(gen_dir)
-            string_imports += [_build_import(dep.label, im) for im in ddep.string_imports]
+            string_imports += ddep.string_imports
             versions += ddep.versions
 
         elif CcInfo in dep:
@@ -447,7 +447,7 @@ def _d_source_library_impl(ctx):
             transitive_extra_files = depset(transitive = transitive_extra_files, order = "postorder"),
             transitive_libs = depset(transitive_libs, transitive = transitive_transitive_libs),
             imports = [_build_import(ctx.label, im, gen_dir) for im in ctx.attr.imports] + transitive_imports.to_list(),
-            string_imports = ctx.attr.string_imports + transitive_string_imports.to_list(),
+            string_imports = [_build_import(ctx.label, im, gen_dir) for im in ctx.attr.string_imports] + transitive_string_imports.to_list(),
             linkopts = ctx.attr.linkopts + transitive_linkopts.to_list(),
             versions = ctx.attr.versions + transitive_versions.to_list(),
             is_generated = ctx.attr.is_generated,
