@@ -66,29 +66,36 @@ def _format_version(name):
     """Formats the string name to be used in a --version flag."""
     return name.replace("-", "_")
 
-def _build_import(label, im):
+def _build_import(label, im, gen_dir = None):
     """Builds the import path under a specific label"""
     import_path = ""
     if label.workspace_root:
         import_path += label.workspace_root + "/"
     if label.package:
         import_path += label.package + "/"
-    import_path += im
+    if im == ".":
+        import_path = import_path[0:len(import_path) - 1]
+    else:
+        import_path += im
+    if gen_dir:
+        import_path = gen_dir + "/" + import_path
     return import_path
 
 def _build_compile_arglist(ctx, out, depinfo, extra_flags = []):
     """Returns a list of strings constituting the D compile command arguments."""
     toolchain = ctx.toolchains[D_TOOLCHAIN]
     version_flag = toolchain.version_flag
+    gen_dir = ctx.genfiles_dir.path if ctx.attr.is_generated else None
 
+    ws_root = gen_dir if ctx.attr.is_generated else "."
     return (
         _compilation_mode_flags(ctx) +
         extra_flags + [
             "-of" + out.path,
             "-w",
         ] +
-        (["-I."] if ctx.attr.include_workspace_root else []) +
-        ["-I%s" % _build_import(ctx.label, im) for im in ctx.attr.imports] +
+        (["-I%s" % ws_root] if ctx.attr.include_workspace_root else []) +
+        ["-I%s" % _build_import(ctx.label, im, gen_dir) for im in ctx.attr.imports] +
         ["-I%s" % im for im in depinfo.imports] +
         ["-J%s" % _build_import(ctx.label, im) for im in ctx.attr.string_imports] +
         ["-J%s" % im for im in depinfo.string_imports] +
@@ -134,6 +141,7 @@ def _setup_deps(ctx, deps, name, working_dir):
         link_flags: List of linker flags.
     """
 
+    gen_dir = ctx.genfiles_dir.path
     libs = []
     transitive_libs = []
     d_srcs = []
@@ -156,7 +164,9 @@ def _setup_deps(ctx, deps, name, working_dir):
             transitive_extra_files.append(ddep.transitive_extra_files)
             versions += ddep.versions + ["Have_%s" % _format_version(dep.label.name)]
             link_flags.extend(ddep.link_flags)
-            imports += [_build_import(dep.label, im) for im in ddep.imports]
+            imports += [_build_import(dep.label, im, gen_dir if ddep.is_generated else None) for im in ddep.imports]
+            if ddep.is_generated:
+                imports.append(gen_dir)
             string_imports += [_build_import(dep.label, im) for im in ddep.string_imports]
 
         elif DInfo in dep and hasattr(dep[DInfo], "d_srcs"):
@@ -168,7 +178,9 @@ def _setup_deps(ctx, deps, name, working_dir):
             transitive_extra_files.append(ddep.transitive_extra_files)
             transitive_libs.append(ddep.transitive_libs)
             link_flags += ["-L%s" % linkopt for linkopt in ddep.linkopts]
-            imports += [_build_import(dep.label, im) for im in ddep.imports]
+            imports += ddep.imports
+            if ddep.is_generated:
+                imports.append(gen_dir)
             string_imports += [_build_import(dep.label, im) for im in ddep.string_imports]
             versions += ddep.versions
 
@@ -264,6 +276,7 @@ def _d_library_impl_common(ctx, extra_flags = []):
             imports = ctx.attr.imports,
             string_imports = ctx.attr.string_imports,
             d_lib = d_lib,
+            is_generated = ctx.attr.is_generated,
         ),
     ]
 
@@ -424,6 +437,8 @@ def _d_source_library_impl(ctx):
             fail("d_source_library can only depend on other " +
                  "d_source_library or cc_library targets.", "deps")
 
+    gen_dir = ctx.genfiles_dir.path if ctx.attr.is_generated else None
+
     return [
         DInfo(
             d_srcs = ctx.files.srcs,
@@ -431,10 +446,11 @@ def _d_source_library_impl(ctx):
             transitive_d_srcs = depset(transitive = transitive_d_srcs, order = "postorder"),
             transitive_extra_files = depset(transitive = transitive_extra_files, order = "postorder"),
             transitive_libs = depset(transitive_libs, transitive = transitive_transitive_libs),
-            imports = ctx.attr.imports + transitive_imports.to_list(),
+            imports = [_build_import(ctx.label, im, gen_dir) for im in ctx.attr.imports] + transitive_imports.to_list(),
             string_imports = ctx.attr.string_imports + transitive_string_imports.to_list(),
             linkopts = ctx.attr.linkopts + transitive_linkopts.to_list(),
             versions = ctx.attr.versions + transitive_versions.to_list(),
+            is_generated = ctx.attr.is_generated,
         ),
     ]
 
@@ -514,6 +530,7 @@ _d_common_attrs = {
     "linkopts": attr.string_list(),
     "versions": attr.string_list(),
     "include_workspace_root": attr.bool(default = True),
+    "is_generated": attr.bool(default = False),
     "deps": attr.label_list(),
 }
 
