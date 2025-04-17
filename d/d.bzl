@@ -193,7 +193,7 @@ def _setup_deps(ctx, deps, name, working_dir):
 
         else:
             fail("D targets can only depend on d_library, d_source_library, or " +
-                 "cc_library targets.", "deps")
+                 "cc_library targets.", dep)
 
     return struct(
         libs = depset(libs),
