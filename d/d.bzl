@@ -214,7 +214,7 @@ def _d_library_impl_common(ctx, extra_flags = []):
     d_lib = ctx.actions.declare_file((ctx.label.name + ".lib") if _is_windows(ctx) else ("lib" + ctx.label.name + ".a"))
 
     # Dependencies
-    deps = ctx.attr.deps + [toolchain.libphobos] + ([toolchain.druntime] if toolchain.druntime != None else [])
+    deps = ctx.attr.deps + ([toolchain.libphobos] if toolchain.libphobos != None else []) + ([toolchain.druntime] if toolchain.druntime != None else [])
     depinfo = _setup_deps(ctx, ctx.attr.deps, ctx.label.name, d_lib.dirname)
 
     # Build compile command.
@@ -232,6 +232,9 @@ def _d_library_impl_common(ctx, extra_flags = []):
     args.add_all(compile_args)
     args.add_all(ctx.files.srcs)
 
+    phobos_files = toolchain.libphobos.files if toolchain.libphobos != None else depset()
+    phobos_src_files = toolchain.libphobos_src.files if toolchain.libphobos_src != None else depset()
+    druntime_src_files = toolchain.druntime_src.files if toolchain.druntime_src != None else depset()
     # TODO: Should they be in transitive?
     compile_inputs = depset(
         ctx.files.srcs +
@@ -243,9 +246,9 @@ def _d_library_impl_common(ctx, extra_flags = []):
             depinfo.transitive_extra_files,
             depinfo.libs,
             depinfo.transitive_libs,
-            toolchain.libphobos.files,
-            toolchain.libphobos_src.files,
-            toolchain.druntime_src.files,
+            phobos_files,
+            phobos_src_files,
+            druntime_src_files,
         ],
     )
 
@@ -288,7 +291,7 @@ def _d_binary_impl_common(ctx, extra_flags = []):
     d_obj = ctx.actions.declare_file(ctx.label.name + (".obj" if _is_windows(ctx) else ".o"))
 
     # Dependencies
-    deps = ctx.attr.deps + [toolchain.libphobos] + ([toolchain.druntime] if toolchain.druntime != None else [])
+    deps = ctx.attr.deps + ([toolchain.libphobos] if toolchain.libphobos != None else []) + ([toolchain.druntime] if toolchain.druntime != None else [])
     depinfo = _setup_deps(ctx, deps, ctx.label.name, d_bin.dirname)
 
     # Build compile command
@@ -307,9 +310,9 @@ def _d_binary_impl_common(ctx, extra_flags = []):
     args.add_all(ctx.files.srcs)
 
     toolchain_files = [
-        toolchain.libphobos.files,
-        toolchain.libphobos_src.files,
-        toolchain.druntime_src.files,
+        toolchain.libphobos.files if toolchain.libphobos != None else depset(),
+        toolchain.libphobos_src.files if toolchain.libphobos_src != None else depset(),
+        toolchain.druntime_src.files if toolchain.druntime_src != None else depset(),
     ]
 
     d_compiler = toolchain.d_compiler.files.to_list()[0]
@@ -507,9 +510,9 @@ def _d_docs_impl(ctx):
     )
 
     toolchain_files = [
-        toolchain.libphobos.files,
-        toolchain.libphobos_src.files,
-        toolchain.druntime_src.files,
+        toolchain.libphobos.files if toolchain.libphobos != None else depset(),
+        toolchain.libphobos_src.files if toolchain.libphobos_src != None else depset(),
+        toolchain.druntime_src.files if toolchain.druntime_src != None else depset(),
     ]
 
     ddoc_inputs = depset(target.srcs, transitive = [target.transitive_srcs] + toolchain_files)
