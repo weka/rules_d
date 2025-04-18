@@ -211,7 +211,8 @@ def _setup_deps(ctx, deps, name, working_dir):
 def _d_library_impl_common(ctx, extra_flags = []):
     """Implementation of the d_library rule."""
     toolchain = ctx.toolchains[D_TOOLCHAIN]
-    d_lib = ctx.actions.declare_file((ctx.label.name + ".lib") if _is_windows(ctx) else ("lib" + ctx.label.name + ".a"))
+    #d_lib = ctx.actions.declare_file((ctx.label.name + ".lib") if _is_windows(ctx) else ("lib" + ctx.label.name + ".a"))
+    d_lib = ctx.actions.declare_file(ctx.label.name + ".o")
 
     # Dependencies
     deps = ctx.attr.deps + ([toolchain.libphobos] if toolchain.libphobos != None else []) + ([toolchain.druntime] if toolchain.druntime != None else [])
@@ -222,7 +223,7 @@ def _d_library_impl_common(ctx, extra_flags = []):
         ctx = ctx,
         out = d_lib,
         depinfo = depinfo,
-        extra_flags = toolchain.lib_flags + extra_flags,
+        extra_flags = ["-c"] + extra_flags,
     )
 
     # Convert sources to args
