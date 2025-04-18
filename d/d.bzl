@@ -39,7 +39,7 @@ def _files_directory(files):
 
 COMPILATION_MODE_FLAGS_POSIX = {
     "fastbuild": ["-g"],
-    "dbg": ["-debug", "-g"],
+    "dbg": ["-d-debug", "-d-version=debug_assert", "-g"],
     "opt": ["-checkaction=halt", "-boundscheck=safeonly", "-O"],
 }
 
