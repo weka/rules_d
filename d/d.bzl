@@ -180,6 +180,7 @@ def _setup_deps(ctx, deps, name, working_dir):
             transitive_extra_files.append(ddep.transitive_extra_files)
             versions += ddep.versions + ["Have_%s" % _format_version(dep.label.name)]
             link_flags.extend(ddep.link_flags)
+            link_flags += ["-L%s" % linkopt for linkopt in ddep.linkopts]
             imports += [_build_import(dep.label, im, gen_dir if ddep.is_generated else None) for im in ddep.imports]
             if ddep.is_generated:
                 imports.append(gen_dir)
@@ -292,6 +293,7 @@ def _d_library_impl_common(ctx, extra_flags = []):
             transitive_extra_files = depset(depinfo.extra_files),
             transitive_libs = depset(transitive = [depinfo.libs, depinfo.transitive_libs]),
             link_flags = depinfo.link_flags,
+            linkopts = ctx.attr.linkopts,
             versions = ctx.attr.versions,
             imports = ctx.attr.imports,
             string_imports = ctx.attr.string_imports,
