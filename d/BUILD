@@ -91,6 +91,13 @@ toolchain(
     toolchain_type = D_TOOLCHAIN,
 )
 
+WEKA_LDC_X86_COMMON_OPTS = [
+    "-mtriple=x86_64-pc-linux-gnu",
+    "-march=x86-64",
+    "-mcpu=x86-64-v3",
+    "-mattr=",
+]
+
 d_toolchain(
     name = "weka_ldc_linux_x86_64",
     d_compiler = "@weka_ldc_linux_x86_64//:ldc2",
@@ -102,12 +109,9 @@ d_toolchain(
     lib_flags = [
         "-lib", "-oq",
     ],
-    extra_switches = [
-        "-mtriple=x86_64-pc-linux-gnu",
-        "-march=x86-64",
-        "-mcpu=x86-64-v3",
-        "-mattr=",
-    ],
+    fastbuild_flags = ["-g"] + WEKA_LDC_X86_COMMON_OPTS,
+    dbg_flags = [ "-d-debug", "-d-version=debug_assert", "-g" ] + WEKA_LDC_X86_COMMON_OPTS,
+    opt_flags = ["-checkaction=halt", "-boundscheck=safeonly", "-O"] + WEKA_LDC_X86_COMMON_OPTS,
 )
 
 toolchain(

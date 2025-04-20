@@ -37,13 +37,13 @@ def _files_directory(files):
             dir = f.dirname
     return dir
 
-COMPILATION_MODE_FLAGS_POSIX = {
+DEFAULT_COMPILATION_MODE_FLAGS_POSIX = {
     "fastbuild": ["-g"],
     "dbg": ["-d-debug", "-d-version=debug_assert", "-g"],
     "opt": ["-checkaction=halt", "-boundscheck=safeonly", "-O"],
 }
 
-COMPILATION_MODE_FLAGS_WINDOWS = {
+DEFAULT_COMPILATION_MODE_FLAGS_WINDOWS = {
     "fastbuild": ["-g", "-m64", "-mscrtlib=msvcrt"],
     "dbg": ["-debug", "-g", "-m64", "-mscrtlib=msvcrtd"],
     "opt": [
@@ -55,12 +55,26 @@ COMPILATION_MODE_FLAGS_WINDOWS = {
     ],
 }
 
+def _default_compilation_mode_flags(ctx):
+    """Returns the default compilation mode flags."""
+    if _is_windows(ctx):
+        return DEFAULT_COMPILATION_MODE_FLAGS_WINDOWS[ctx.var["COMPILATION_MODE"]]
+    else:
+        return DEFAULT_COMPILATION_MODE_FLAGS_POSIX[ctx.var["COMPILATION_MODE"]]
+
 def _compilation_mode_flags(ctx):
     """Returns a list of flags based on the compilation_mode."""
-    if _is_windows(ctx):
-        return COMPILATION_MODE_FLAGS_WINDOWS[ctx.var["COMPILATION_MODE"]]
+    toolchain = ctx.toolchains[D_TOOLCHAIN]
+    compilation_mode = ctx.var["COMPILATION_MODE"]
+    default_flags = _default_compilation_mode_flags(ctx)
+    if compilation_mode == "dbg":
+        return toolchain.dbg_flags or default_flags
+    elif compilation_mode == "opt":
+        return toolchain.opt_flags or default_flags
+    elif compilation_mode == "fastbuild":
+        return toolchain.fastbuild_flags or default_flags
     else:
-        return COMPILATION_MODE_FLAGS_POSIX[ctx.var["COMPILATION_MODE"]]
+        fail("Invalid compilation mode: %s" % compilation_mode)
 
 def _format_version(name):
     """Formats the string name to be used in a --version flag."""
@@ -90,7 +104,6 @@ def _build_compile_arglist(ctx, out, depinfo, extra_flags = []):
     ws_root = gen_dir if ctx.attr.is_generated else "."
     return (
         _compilation_mode_flags(ctx) +
-        toolchain.extra_switches +
         extra_flags + [
             "-of" + out.path,
             "-w",
