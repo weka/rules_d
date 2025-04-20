@@ -119,10 +119,11 @@ def _build_compile_arglist(ctx, out, depinfo, extra_flags = []):
         [version_flag + "=%s" % v for v in depinfo.versions]
     )
 
-def _build_link_arglist(ctx, objs, out, depinfo):
+def _build_link_arglist(ctx, objs, out, depinfo, c_compiler):
     """Returns a list of strings constituting the D link command arguments."""
     return (
         _compilation_mode_flags(ctx) +
+        (["-gcc=%s" % c_compiler.files.to_list()[0].path] if c_compiler else []) +
         ["-of" + out.path] +
         [f.path for f in depset(transitive = [depinfo.libs, depinfo.transitive_libs]).to_list()] +
         depinfo.link_flags +
@@ -352,6 +353,7 @@ def _d_binary_impl_common(ctx, extra_flags = []):
         objs = [d_obj.path],
         depinfo = depinfo,
         out = d_bin,
+        c_compiler = toolchain.c_compiler,
     )
 
     link_inputs = depset(
@@ -361,7 +363,7 @@ def _d_binary_impl_common(ctx, extra_flags = []):
 
     ctx.actions.run(
         inputs = link_inputs,
-        tools = [d_compiler],
+        tools = [d_compiler] + (toolchain.c_compiler.files.to_list() if toolchain.c_compiler else []),
         outputs = [d_bin],
         mnemonic = "Dlink",
         executable = d_compiler,
