@@ -109,9 +109,7 @@ def _build_compile_arglist(ctx, out, depinfo, extra_flags = []):
             "-w",
         ] +
         (["-I%s" % ws_root] if ctx.attr.include_workspace_root else []) +
-        ["-I%s" % _build_import(ctx.label, im, gen_dir) for im in ctx.attr.imports] +
         ["-I%s" % im for im in depinfo.imports] +
-        ["-J%s" % _build_import(ctx.label, im) for im in ctx.attr.string_imports] +
         ["-J%s" % im for im in depinfo.string_imports] +
         # toolchain.import_flags +
         [version_flag + "=Have_%s" % _format_version(ctx.label.name)] +
@@ -165,8 +163,9 @@ def _setup_deps(ctx, deps, name, working_dir):
     transitive_d_srcs = []
     transitive_extra_files = []
     versions = []
-    imports = []
-    string_imports = []
+    gen_dir_for_imports = gen_dir if ctx.attr.is_generated else None
+    imports = [_build_import(ctx.label, im, gen_dir_for_imports) for im in ctx.attr.imports]
+    string_imports = [_build_import(ctx.label, im, gen_dir_for_imports) for im in ctx.attr.string_imports]
     link_flags = []
     for dep in deps:
         if DInfo in dep and hasattr(dep[DInfo], "d_lib"):
@@ -181,10 +180,10 @@ def _setup_deps(ctx, deps, name, working_dir):
             versions += ddep.versions + ["Have_%s" % _format_version(dep.label.name)]
             link_flags.extend(ddep.link_flags)
             link_flags += ["-L%s" % linkopt for linkopt in ddep.linkopts]
-            imports += [_build_import(dep.label, im, gen_dir if ddep.is_generated else None) for im in ddep.imports]
+            imports += ddep.imports
             if ddep.is_generated:
                 imports.append(gen_dir)
-            string_imports += [_build_import(dep.label, im, gen_dir if ddep.is_generated else None) for im in ddep.string_imports]
+            string_imports += ddep.string_imports
 
         elif DInfo in dep and hasattr(dep[DInfo], "d_srcs"):
             # The dependency is a d_source_library.
@@ -295,8 +294,8 @@ def _d_library_impl_common(ctx, extra_flags = []):
             link_flags = depinfo.link_flags,
             linkopts = ctx.attr.linkopts,
             versions = ctx.attr.versions,
-            imports = ctx.attr.imports,
-            string_imports = ctx.attr.string_imports,
+            imports = depinfo.imports,
+            string_imports = depinfo.string_imports,
             d_lib = d_lib,
             is_generated = ctx.attr.is_generated,
         ),
