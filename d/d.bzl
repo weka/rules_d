@@ -129,7 +129,7 @@ def _build_link_arglist(ctx, objs, out, depinfo, c_compiler, link_flags):
         objs
     )
 
-def _setup_deps(ctx, deps, name, working_dir):
+def _setup_deps(ctx, deps, name):
     """Sets up dependencies.
 
     Walks through dependencies and constructs the commands and flags needed
@@ -138,7 +138,6 @@ def _setup_deps(ctx, deps, name, working_dir):
     Args:
       deps: List of deps labels from ctx.attr.deps.
       name: Name of the current target.
-      working_dir: The output directory of the current target's output.
 
     Returns:
       Returns a struct containing the following fields:
@@ -231,7 +230,7 @@ def _d_library_impl_common(ctx, extra_flags = []):
 
     # Dependencies
     deps = ctx.attr.deps + ([toolchain.libphobos] if toolchain.libphobos != None else []) + ([toolchain.druntime] if toolchain.druntime != None else [])
-    depinfo = _setup_deps(ctx, ctx.attr.deps, ctx.label.name, d_lib.dirname)
+    depinfo = _setup_deps(ctx, ctx.attr.deps, ctx.label.name)
 
     # Build compile command.
     compile_args = _build_compile_arglist(
@@ -309,7 +308,7 @@ def _d_binary_impl_common(ctx, extra_flags = []):
 
     # Dependencies
     deps = ctx.attr.deps + ([toolchain.libphobos] if toolchain.libphobos != None else []) + ([toolchain.druntime] if toolchain.druntime != None else [])
-    depinfo = _setup_deps(ctx, deps, ctx.label.name, d_bin.dirname)
+    depinfo = _setup_deps(ctx, deps, ctx.label.name)
 
     # Build compile command
     compile_args = _build_compile_arglist(
