@@ -112,9 +112,7 @@ def _build_compile_arglist(ctx, out, depinfo, extra_flags = []):
         ["-I%s" % im for im in depinfo.imports] +
         ["-J%s" % im for im in depinfo.string_imports] +
         # toolchain.import_flags +
-        [version_flag + "=Have_%s" % _format_version(ctx.label.name)] +
-        [version_flag + "=%s" % v for v in ctx.attr.versions] +
-        [version_flag + "=%s" % v for v in depinfo.versions]
+        [version_flag + "=%s" % v for v in depinfo.versions.to_list()]
     )
 
 def _build_link_arglist(ctx, objs, out, depinfo, c_compiler, link_flags):
@@ -162,7 +160,8 @@ def _setup_deps(ctx, deps, name):
     extra_files = []
     transitive_d_srcs = []
     transitive_extra_files = []
-    versions = []
+    versions = ctx.attr.versions + ["Have_%s" % _format_version(name)]
+    transitive_versions = []
     gen_dir_for_imports = gen_dir if ctx.attr.is_generated else None
     imports = [_build_import(ctx.label, im, gen_dir_for_imports) for im in ctx.attr.imports]
     string_imports = [_build_import(ctx.label, im, gen_dir_for_imports) for im in ctx.attr.string_imports]
@@ -177,7 +176,7 @@ def _setup_deps(ctx, deps, name):
             transitive_d_srcs.append(ddep.transitive_d_srcs)
             extra_files += ddep.extra_files
             transitive_extra_files.append(ddep.transitive_extra_files)
-            versions += ddep.versions + ["Have_%s" % _format_version(dep.label.name)]
+            transitive_versions.append(ddep.versions)
             link_flags.extend(ddep.link_flags)
             link_flags += ["-L%s" % linkopt for linkopt in ddep.linkopts]
             imports += ddep.imports
@@ -198,7 +197,7 @@ def _setup_deps(ctx, deps, name):
             if ddep.is_generated:
                 imports.append(gen_dir)
             string_imports += ddep.string_imports
-            versions += ddep.versions
+            transitive_versions.append(ddep.versions)
 
         elif CcInfo in dep:
             # The dependency is a cc_library
@@ -217,7 +216,7 @@ def _setup_deps(ctx, deps, name):
         transitive_d_srcs = depset(transitive = transitive_d_srcs),
         extra_files = depset(extra_files).to_list(),
         transitive_extra_files = depset(transitive = transitive_extra_files),
-        versions = versions,
+        versions = depset(versions, transitive = transitive_versions),
         imports = depset(imports).to_list(),
         string_imports = depset(string_imports).to_list(),
         link_flags = depset(link_flags).to_list(),
@@ -293,7 +292,7 @@ def _d_library_impl_common(ctx, extra_flags = []):
             transitive_libs = depset(transitive = [depinfo.libs, depinfo.transitive_libs]),
             link_flags = depinfo.link_flags,
             linkopts = ctx.attr.linkopts,
-            versions = ctx.attr.versions,
+            versions = depinfo.versions,
             imports = depinfo.imports,
             string_imports = depinfo.string_imports,
             d_lib = d_lib,
@@ -448,7 +447,7 @@ def _d_source_library_impl(ctx):
             transitive_imports = depset(ddep.imports, transitive = [transitive_imports])
             transitive_string_imports = depset(ddep.string_imports, transitive = [transitive_string_imports])
             transitive_linkopts = depset(ddep.linkopts, transitive = [transitive_linkopts])
-            transitive_versions = depset(ddep.versions, transitive = [transitive_versions])
+            transitive_versions = depset(transitive = [ddep.versions, transitive_versions])
             transitive_transitive_libs.append(ddep.transitive_libs)
 
         elif CcInfo in dep:
@@ -472,7 +471,7 @@ def _d_source_library_impl(ctx):
             imports = [_build_import(ctx.label, im, gen_dir) for im in ctx.attr.imports] + transitive_imports.to_list(),
             string_imports = [_build_import(ctx.label, im, gen_dir) for im in ctx.attr.string_imports] + transitive_string_imports.to_list(),
             linkopts = ctx.attr.linkopts + transitive_linkopts.to_list(),
-            versions = ctx.attr.versions + transitive_versions.to_list(),
+            versions = depset(ctx.attr.versions, transitive = [transitive_versions]),
             is_generated = ctx.attr.is_generated,
         ),
     ]
