@@ -136,6 +136,7 @@ def _setup_deps(ctx, deps, name):
     for linking the necessary dependencies.
 
     Args:
+      ctx: The context of the current target.
       deps: List of deps labels from ctx.attr.deps.
       name: Name of the current target.
 
