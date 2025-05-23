@@ -151,6 +151,10 @@ def _setup_deps(ctx, deps, name):
         string_imports: List of strings containing input paths that will be
             passed to the D compiler via -J flags.
         link_flags: List of linker flags.
+        generated_srcs: A dictionary mapping generated files to their
+            desired locations.
+        extra_files: List of Files containing extra (non-source) files that will
+            be used as inputs for this target.
     """
 
     gen_dir = ctx.genfiles_dir.path
