@@ -166,6 +166,8 @@ def _setup_deps(ctx, deps, name):
     imports = [_build_import(ctx.label, im, gen_dir_for_imports) for im in ctx.attr.imports]
     string_imports = [_build_import(ctx.label, im, gen_dir_for_imports) for im in ctx.attr.string_imports]
     link_flags = []
+    generated_srcs = {
+        src.files.to_list()[0]: src.label.package + "/" + loc for src, loc in ctx.attr.generated_srcs.items()}
     for dep in deps:
         if DInfo in dep and hasattr(dep[DInfo], "d_lib"):
             # The dependency is a d_library.
@@ -183,6 +185,7 @@ def _setup_deps(ctx, deps, name):
             if ddep.is_generated:
                 imports.append(gen_dir)
             string_imports += ddep.string_imports
+            generated_srcs = generated_srcs | ddep.generated_srcs
 
         elif DInfo in dep and hasattr(dep[DInfo], "d_srcs"):
             # The dependency is a d_source_library.
@@ -198,6 +201,7 @@ def _setup_deps(ctx, deps, name):
                 imports.append(gen_dir)
             string_imports += ddep.string_imports
             transitive_versions.append(ddep.versions)
+            generated_srcs = generated_srcs | ddep.generated_srcs
 
         elif CcInfo in dep:
             # The dependency is a cc_library
@@ -220,13 +224,40 @@ def _setup_deps(ctx, deps, name):
         imports = depset(imports).to_list(),
         string_imports = depset(string_imports).to_list(),
         link_flags = depset(link_flags).to_list(),
+        generated_srcs = generated_srcs,
     )
+
+def _handle_generated_srcs(ctx, generated_srcs, d_compiler):
+    """Handles the generated source files."""
+    if not generated_srcs:
+        return (ctx.files.srcs, None)
+    mapped_srcs = [src if src not in generated_srcs else generated_srcs[src] for src in ctx.files.srcs]
+
+    generated_srcs_file = ctx.actions.declare_file(ctx.label.name + "_generated_srcs_wrapper.sh")
+    ctx.actions.write(
+        output = generated_srcs_file,
+        content = "\n".join(
+            [
+                "#!/bin/sh",
+                "set -e",
+            ] + 
+            [
+                "mkdir -p $(dirname %s)\n" % loc +
+                "ln -s $PWD/%s %s" % (src.path, loc) for src, loc in generated_srcs.items()
+            ] + [
+                "%s $*" % d_compiler.path,
+            ]),
+        is_executable = True,
+    )
+
+    return (mapped_srcs, generated_srcs_file)
 
 def _d_library_impl_common(ctx, extra_flags = []):
     """Implementation of the d_library rule."""
     toolchain = ctx.toolchains[D_TOOLCHAIN]
     #d_lib = ctx.actions.declare_file((ctx.label.name + ".lib") if _is_windows(ctx) else ("lib" + ctx.label.name + ".a"))
     d_lib = ctx.actions.declare_file(ctx.label.name + ".o")
+    d_compiler = toolchain.d_compiler.files.to_list()[0]
 
     # Dependencies
     deps = ctx.attr.deps + ([toolchain.libphobos] if toolchain.libphobos != None else []) + ([toolchain.druntime] if toolchain.druntime != None else [])
@@ -245,7 +276,10 @@ def _d_library_impl_common(ctx, extra_flags = []):
     # args will auto-expand this to the contained files
     args = ctx.actions.args()
     args.add_all(compile_args)
-    args.add_all(ctx.files.srcs)
+
+    mapped_srcs, generated_srcs_wrapper = _handle_generated_srcs(ctx, depinfo.generated_srcs, d_compiler)
+
+    args.add_all(mapped_srcs)
 
     phobos_files = toolchain.libphobos.files if toolchain.libphobos != None else depset()
     phobos_src_files = toolchain.libphobos_src.files if toolchain.libphobos_src != None else depset()
@@ -267,14 +301,12 @@ def _d_library_impl_common(ctx, extra_flags = []):
         ],
     )
 
-    d_compiler = toolchain.d_compiler.files.to_list()[0]
-
     ctx.actions.run(
         inputs = compile_inputs,
-        tools = [d_compiler],
+        tools = [d_compiler, generated_srcs_wrapper] if generated_srcs_wrapper else [d_compiler],
         outputs = [d_lib],
         mnemonic = "Dcompile",
-        executable = d_compiler,
+        executable = generated_srcs_wrapper if generated_srcs_wrapper else d_compiler,
         arguments = [args],
         use_default_shell_env = True,
         progress_message = "Compiling D library " + ctx.label.name,
@@ -297,6 +329,7 @@ def _d_library_impl_common(ctx, extra_flags = []):
             string_imports = depinfo.string_imports,
             d_lib = d_lib,
             is_generated = ctx.attr.is_generated,
+            generated_srcs = depinfo.generated_srcs,
         ),
     ]
 
@@ -305,6 +338,7 @@ def _d_binary_impl_common(ctx, extra_flags = []):
     toolchain = ctx.toolchains[D_TOOLCHAIN]
     d_bin = ctx.actions.declare_file(ctx.label.name + ".exe" if _is_windows(ctx) else ctx.label.name)
     d_obj = ctx.actions.declare_file(ctx.label.name + (".obj" if _is_windows(ctx) else ".o"))
+    d_compiler = toolchain.d_compiler.files.to_list()[0]
 
     # Dependencies
     deps = ctx.attr.deps + ([toolchain.libphobos] if toolchain.libphobos != None else []) + ([toolchain.druntime] if toolchain.druntime != None else [])
@@ -323,7 +357,10 @@ def _d_binary_impl_common(ctx, extra_flags = []):
     # args will auto-expand this to the contained files
     args = ctx.actions.args()
     args.add_all(compile_args)
-    args.add_all(ctx.files.srcs)
+
+    mapped_srcs, generated_srcs_wrapper = _handle_generated_srcs(ctx, depinfo.generated_srcs, d_compiler)
+
+    args.add_all(mapped_srcs)
 
     toolchain_files = [
         toolchain.libphobos.files if toolchain.libphobos != None else depset(),
@@ -331,18 +368,16 @@ def _d_binary_impl_common(ctx, extra_flags = []):
         toolchain.druntime_src.files if toolchain.druntime_src != None else depset(),
     ]
 
-    d_compiler = toolchain.d_compiler.files.to_list()[0]
-
     compile_inputs = depset(
         ctx.files.srcs + depinfo.d_srcs + ctx.files.extra_files + depinfo.extra_files,
         transitive = [depinfo.transitive_d_srcs, depinfo.transitive_extra_files] + toolchain_files,
     )
     ctx.actions.run(
         inputs = compile_inputs,
-        tools = [d_compiler],
+        tools = [d_compiler, generated_srcs_wrapper] if generated_srcs_wrapper else [d_compiler],
         outputs = [d_obj],
         mnemonic = "Dcompile",
-        executable = d_compiler,
+        executable = generated_srcs_wrapper if generated_srcs_wrapper else d_compiler,
         arguments = [args],
         use_default_shell_env = True,
         progress_message = "Compiling D binary " + ctx.label.name,
@@ -473,6 +508,7 @@ def _d_source_library_impl(ctx):
             linkopts = ctx.attr.linkopts + transitive_linkopts.to_list(),
             versions = depset(ctx.attr.versions, transitive = [transitive_versions]),
             is_generated = ctx.attr.is_generated,
+            generated_srcs = ctx.attr.generated_srcs,
         ),
     ]
 
@@ -553,6 +589,7 @@ _d_common_attrs = {
     "versions": attr.string_list(),
     "include_workspace_root": attr.bool(default = True),
     "is_generated": attr.bool(default = False),
+    "generated_srcs": attr.label_keyed_string_dict(),
     "deps": attr.label_list(),
 }
 
