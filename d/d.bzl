@@ -23,7 +23,7 @@ def a_filetype(ctx, files):
     lib_suffix = ".lib" if _is_windows(ctx) else ".a"
     return [f for f in files if f.basename.endswith(lib_suffix)]
 
-D_FILETYPE = [".d", ".di"]
+D_FILETYPE = [".d", ".di", ".h"] # TODO: restrict support of .di and .h files to source libraries
 
 ZIP_PATH = "/usr/bin/zip"
 
@@ -178,7 +178,7 @@ def _setup_deps(ctx, deps, name):
             ddep = dep[DInfo]
             libs.append(ddep.d_lib)
             transitive_libs.append(ddep.transitive_libs)
-            d_srcs += ddep.d_srcs
+            d_srcs += ddep.d_exports
             transitive_d_srcs.append(ddep.transitive_d_srcs)
             extra_files += ddep.extra_files
             transitive_extra_files.append(ddep.transitive_extra_files)
@@ -220,8 +220,7 @@ def _setup_deps(ctx, deps, name):
     return struct(
         libs = depset(libs),
         transitive_libs = depset(transitive = transitive_libs),
-        d_srcs = depset(d_srcs).to_list(),
-        transitive_d_srcs = depset(transitive = transitive_d_srcs),
+        transitive_d_srcs = depset(d_srcs, transitive = transitive_d_srcs),
         extra_files = depset(extra_files).to_list(),
         transitive_extra_files = depset(transitive = transitive_extra_files),
         versions = depset(versions, transitive = transitive_versions),
@@ -291,7 +290,8 @@ def _d_library_impl_common(ctx, extra_flags = []):
     # TODO: Should they be in transitive?
     compile_inputs = depset(
         ctx.files.srcs +
-        depinfo.d_srcs +
+        ctx.files.hdrs +
+        ctx.files.exports +
         ctx.files.extra_files +
         depinfo.extra_files,
         transitive = [
@@ -316,13 +316,18 @@ def _d_library_impl_common(ctx, extra_flags = []):
         progress_message = "Compiling D library " + ctx.label.name,
     )
 
+    public_srcs = ctx.files.hdrs + ctx.files.exports
+    if not public_srcs:
+        public_srcs = ctx.files.srcs
+
     return [
         DefaultInfo(
             files = depset([d_lib]),
         ),
         DInfo(
             d_srcs = ctx.files.srcs,
-            transitive_d_srcs = depset(depinfo.d_srcs),
+            d_exports = public_srcs,
+            transitive_d_srcs = depinfo.transitive_d_srcs,
             extra_files = ctx.files.extra_files,
             transitive_extra_files = depset(depinfo.extra_files),
             transitive_libs = depset(transitive = [depinfo.libs, depinfo.transitive_libs]),
@@ -373,7 +378,7 @@ def _d_binary_impl_common(ctx, extra_flags = []):
     ]
 
     compile_inputs = depset(
-        ctx.files.srcs + depinfo.d_srcs + ctx.files.extra_files + depinfo.extra_files,
+        ctx.files.srcs + ctx.files.extra_files + depinfo.extra_files,
         transitive = [depinfo.transitive_d_srcs, depinfo.transitive_extra_files] + toolchain_files,
     )
     ctx.actions.run(
@@ -416,7 +421,7 @@ def _d_binary_impl_common(ctx, extra_flags = []):
     return [
         DInfo(
             d_srcs = ctx.files.srcs,
-            transitive_d_srcs = depset(depinfo.d_srcs),
+            transitive_d_srcs = depinfo.transitive_d_srcs,
             extra_files = ctx.files.extra_files,
             transitive_extra_files = depset(depinfo.extra_files),
             imports = ctx.attr.imports,
@@ -597,6 +602,11 @@ _d_common_attrs = {
     "deps": attr.label_list(),
 }
 
+_d_library_attrs = {
+    "hdrs": attr.label_list(allow_files = D_FILETYPE, allow_empty = True),
+    "exports": attr.label_list(allow_files = D_FILETYPE),
+}
+
 # _d_compile_attrs = {
 #     "_d_compiler": attr.label(
 #         default = Label("//d:dmd"),
@@ -617,13 +627,13 @@ _d_common_attrs = {
 
 d_library = rule(
     _d_library_impl,
-    attrs = dict(_d_common_attrs.items()),
+    attrs = dict(_d_common_attrs.items() + _d_library_attrs.items()),
     toolchains = [D_TOOLCHAIN],
 )
 
 d_test_library = rule(
     _d_test_library_impl,
-    attrs = dict(_d_common_attrs.items()),
+    attrs = dict(_d_common_attrs.items() + _d_library_attrs.items()),
     toolchains = [D_TOOLCHAIN],
 )
 
