@@ -297,8 +297,6 @@ def _d_library_impl_common(ctx, extra_flags = []):
         transitive = [
             depinfo.transitive_d_srcs,
             depinfo.transitive_extra_files,
-            depinfo.libs,
-            depinfo.transitive_libs,
             phobos_files,
             phobos_src_files,
             druntime_src_files,
