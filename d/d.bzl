@@ -715,3 +715,74 @@ d_docs = rule(
     },
     toolchains = [D_TOOLCHAIN],
 )
+
+def d_lib(
+    name,
+    srcs = [],
+    imports = [],
+    string_imports = [],
+    extra_files = [],
+    linkopts = [],
+    versions = [],
+    hdrs = [],
+    exports = [],
+    exports_no_hdrs = [],
+    deps = [],
+    include_workspace_root = True,
+    is_generated = False,
+    generated_srcs = {},
+):
+    """d_lib is a macro that can generate header files for a D library.
+
+    It wraps the d_library rule and automatically generates header files
+    for the exported D source files. It takes mostly the same arguments
+    as d_library, plus an additional `exports_no_hdrs` argument that
+    specifies the exported D source files that should be exported without
+    generating headers for them (this might be useful if they contain
+    non-templated functions that need to be called during CTFE).
+    Args:
+      name: The name of the target.
+      srcs: List of D source files to compile.
+      imports: List of import paths to include in the compilation.
+      string_imports: List of string import paths to include in the compilation.
+      extra_files: List of extra files to include in the compilation.
+      linkopts: List of linker options to pass to the linker.
+      versions: List of D versions to define during compilation.
+      hdrs: List of header files to include in the library.
+      exports: List of D source files to export, which will have headers generated for them.
+      exports_no_hdrs: List of D source files to export without generating headers.
+      deps: List of dependencies for this library.
+      include_workspace_root: Whether to include the workspace root in import paths.
+      is_generated: Whether this library is generated (used for generated sources).
+      generated_srcs: A dictionary mapping generated source files to their desired locations.
+    """
+    exports_hdrs = []
+    new_generated_srcs = {}
+    new_generated_srcs |= generated_srcs
+    for exp in exports:
+        if not exp.endswith(".d"):
+            fail("Exported files must be D source files, got: %s" % exp)
+        d_header_generator(
+            name = exp + "_hdrgen",
+            src = exp,
+        )
+        hdr = exp + "_hdrgen"
+        exports_hdrs.append(hdr)
+        di_name = exp[:-2] + ".di"  # Replace .d with .di
+        new_generated_srcs[hdr] = di_name
+    
+    d_library(
+        name = name,
+        srcs = srcs,
+        imports = imports,
+        string_imports = string_imports,
+        extra_files = extra_files,
+        linkopts = linkopts,
+        versions = versions,
+        hdrs = hdrs + exports_hdrs,
+        exports = exports_no_hdrs,
+        deps = deps,
+        include_workspace_root = include_workspace_root,
+        is_generated = is_generated,
+        generated_srcs = new_generated_srcs,
+    )
