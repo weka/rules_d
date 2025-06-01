@@ -40,6 +40,7 @@ def _d_toolchain_impl(ctx):
         fastbuild_flags = ctx.attr.fastbuild_flags,
         dbg_flags = ctx.attr.dbg_flags,
         opt_flags = ctx.attr.opt_flags,
+        hdrgen_flags = ctx.attr.hdrgen_flags,
     )
     return [toolchain_info]
 
@@ -71,5 +72,6 @@ d_toolchain = rule(
         "fastbuild_flags": attr.string_list(),
         "dbg_flags": attr.string_list(),
         "opt_flags": attr.string_list(),
+        "hdrgen_flags": attr.string_list(),
     },
 )

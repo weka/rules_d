@@ -90,3 +90,34 @@ toolchain(
     toolchain = ":ldc_linux_x86_64",
     toolchain_type = D_TOOLCHAIN,
 )
+
+d_toolchain(
+    name = "weka_ldc_linux_x86_64",
+    d_compiler = "@weka_ldc_linux_x86_64//:ldc2",
+    druntime = "@weka_ldc_linux_x86_64//:druntime",
+    druntime_src = "@weka_ldc_linux_x86_64//:druntime_src",
+    libphobos = "@weka_ldc_linux_x86_64//:libphobos2",
+    libphobos_src = "@weka_ldc_linux_x86_64//:phobos_src",
+    version_flag = "--d-version",
+    lib_flags = [
+        "-lib", "-oq",
+    ],
+    hdrgen_flags = [
+        "-Honly",
+    ],
+)
+
+toolchain(
+    name = "weka_ldc_linux_x86_64_toolchain",
+    exec_compatible_with = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+        "//d/constraints/compiler:weka-ldc",
+    ],
+    target_compatible_with = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+    toolchain = ":weka_ldc_linux_x86_64",
+    toolchain_type = D_TOOLCHAIN,
+)

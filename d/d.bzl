@@ -589,6 +589,42 @@ def _d_docs_impl(ctx):
         progress_message = "Generating D docs for " + ctx.label.name,
     )
 
+def _d_header_generator_impl(ctx):
+    """Implementation of the d_header_generator rule."""
+    toolchain = ctx.toolchains[D_TOOLCHAIN]
+    if not toolchain.hdrgen_flags:
+        fail("d_header_generator requires a toolchain with hdrgen_flags set.")
+    
+    d_compiler = toolchain.d_compiler.files.to_list()[0]
+
+    infile = ctx.file.src
+    if not infile:
+        fail("d_header_generator requires a single source file.")
+    
+    if not infile.path.endswith(".d"):
+        fail("d_header_generator only supports .d files, got: %s" % infile.path)
+    
+    header = ctx.actions.declare_file(ctx.label.name + ".di")
+
+    ctx.actions.run(
+        inputs = [ctx.file.src],
+        tools = [d_compiler],
+        outputs = [header],
+        mnemonic = "Dhdrgen",
+        executable = d_compiler,
+        arguments = toolchain.hdrgen_flags + [infile.path, "--Hf", header.path],
+        use_default_shell_env = True,
+        progress_message = "Generating D header for " + ctx.label.name,
+    )
+    return [
+        DefaultInfo(
+            files = depset([header]),
+        ),
+        DInfo(
+            d_exports = [header]
+        ),
+    ]
+
 _d_common_attrs = {
     "srcs": attr.label_list(allow_files = D_FILETYPE),
     "imports": attr.string_list(),
@@ -634,6 +670,17 @@ d_library = rule(
 d_test_library = rule(
     _d_test_library_impl,
     attrs = dict(_d_common_attrs.items() + _d_library_attrs.items()),
+    toolchains = [D_TOOLCHAIN],
+)
+
+d_header_generator = rule(
+    _d_header_generator_impl,
+    attrs = {
+        "src": attr.label(
+            mandatory = True,
+            allow_single_file = [".d"],
+        ),
+    },
     toolchains = [D_TOOLCHAIN],
 )
 
