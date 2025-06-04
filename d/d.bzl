@@ -735,6 +735,7 @@ def d_lib(
     is_generated = False,
     generated_srcs = {},
     test = False,
+    exports_lib = None,
 ):
     """d_lib is a macro that can generate header files for a D library.
 
@@ -760,6 +761,9 @@ def d_lib(
       is_generated: Whether this library is generated (used for generated sources).
       generated_srcs: A dictionary mapping generated source files to their desired locations.
       test: Whether this library is a test library (compiled with -unittest flag).
+      exports_lib: Optional label of a d_library target that contains the exported files.
+          If provided, will create an extra `d_source_library` with headers+exports.
+          This could be used to break a circular dependency.
     """
     exports_hdrs = []
     new_generated_srcs = {}
@@ -804,6 +808,21 @@ def d_lib(
             hdrs = hdrs + exports_hdrs,
             exports = exports_no_hdrs,
             deps = deps,
+            include_workspace_root = include_workspace_root,
+            is_generated = is_generated,
+            generated_srcs = new_generated_srcs,
+        )
+
+    if exports_lib:
+        # Create a d_source_library with the exported files.
+        d_source_library(
+            name = exports_lib,
+            srcs = hdrs + exports_hdrs + exports_no_hdrs,
+            imports = imports,
+            string_imports = string_imports,
+            extra_files = extra_files,
+            linkopts = linkopts,
+            versions = versions,
             include_workspace_root = include_workspace_root,
             is_generated = is_generated,
             generated_srcs = new_generated_srcs,
