@@ -479,6 +479,8 @@ def _d_source_library_impl(ctx):
     transitive_string_imports = depset()
     transitive_linkopts = depset()
     transitive_versions = depset()
+    generated_srcs = {
+        src.files.to_list()[0]: src.label.package + "/" + loc for src, loc in ctx.attr.generated_srcs.items()}
     for dep in ctx.attr.deps:
         if DInfo in dep and hasattr(dep[DInfo], "d_srcs") and not hasattr(dep[DInfo], "d_lib"):
             # Dependency is another d_source_library target.
@@ -491,6 +493,7 @@ def _d_source_library_impl(ctx):
             transitive_linkopts = depset(ddep.linkopts, transitive = [transitive_linkopts])
             transitive_versions = depset(transitive = [ddep.versions, transitive_versions])
             transitive_transitive_libs.append(ddep.transitive_libs)
+            generated_srcs = generated_srcs | ddep.generated_srcs
 
         elif CcInfo in dep:
             # Dependency is a cc_library target.
@@ -515,7 +518,7 @@ def _d_source_library_impl(ctx):
             linkopts = ctx.attr.linkopts + transitive_linkopts.to_list(),
             versions = depset(ctx.attr.versions, transitive = [transitive_versions]),
             is_generated = ctx.attr.is_generated,
-            generated_srcs = ctx.attr.generated_srcs,
+            generated_srcs = generated_srcs,
         ),
     ]
 
