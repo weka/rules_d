@@ -176,7 +176,8 @@ def _setup_deps(ctx, deps, name):
         if DInfo in dep and hasattr(dep[DInfo], "d_lib"):
             # The dependency is a d_library.
             ddep = dep[DInfo]
-            libs.append(ddep.d_lib)
+            if ddep.d_lib:
+                libs.append(ddep.d_lib)
             transitive_libs.append(ddep.transitive_libs)
             d_srcs += ddep.d_exports
             transitive_d_srcs.append(ddep.transitive_d_srcs)
@@ -258,13 +259,41 @@ def _handle_generated_srcs(ctx, generated_srcs, d_compiler):
 def _d_library_impl_common(ctx, extra_flags = []):
     """Implementation of the d_library rule."""
     toolchain = ctx.toolchains[D_TOOLCHAIN]
-    #d_lib = ctx.actions.declare_file((ctx.label.name + ".lib") if _is_windows(ctx) else ("lib" + ctx.label.name + ".a"))
-    d_lib = ctx.actions.declare_file(ctx.label.name + ".o")
     d_compiler = toolchain.d_compiler.files.to_list()[0]
 
     # Dependencies
     deps = ctx.attr.deps + ([toolchain.libphobos] if toolchain.libphobos != None else []) + ([toolchain.druntime] if toolchain.druntime != None else [])
     depinfo = _setup_deps(ctx, ctx.attr.deps, ctx.label.name)
+
+    public_srcs = ctx.files.hdrs + ctx.files.exports
+    if not public_srcs:
+        public_srcs = ctx.files.srcs
+
+    if not ctx.files.srcs:
+        return [
+            DefaultInfo(
+                files = depset(),
+            ),
+            DInfo(
+                d_srcs = ctx.files.srcs,
+                d_exports = public_srcs,
+                transitive_d_srcs = depinfo.transitive_d_srcs,
+                extra_files = ctx.files.extra_files,
+                transitive_extra_files = depset(depinfo.extra_files),
+                transitive_libs = depset(transitive = [depinfo.libs, depinfo.transitive_libs]),
+                link_flags = depinfo.link_flags,
+                linkopts = ctx.attr.linkopts,
+                versions = depinfo.versions,
+                imports = depinfo.imports,
+                string_imports = depinfo.string_imports,
+                d_lib = "",  # TODO: we only need it to distinguish from d_source_library. Either drop d_source_library or make another provider for it.
+                is_generated = ctx.attr.is_generated,
+                generated_srcs = depinfo.generated_srcs,
+            ),
+        ]
+ 
+    #d_lib = ctx.actions.declare_file((ctx.label.name + ".lib") if _is_windows(ctx) else ("lib" + ctx.label.name + ".a"))
+    d_lib = ctx.actions.declare_file(ctx.label.name + ".o")
 
     # Build compile command.
     compile_args = _build_compile_arglist(
@@ -313,10 +342,6 @@ def _d_library_impl_common(ctx, extra_flags = []):
         use_default_shell_env = True,
         progress_message = "Compiling D library " + ctx.label.name,
     )
-
-    public_srcs = ctx.files.hdrs + ctx.files.exports
-    if not public_srcs:
-        public_srcs = ctx.files.srcs
 
     return [
         DefaultInfo(
