@@ -369,56 +369,58 @@ def _d_binary_impl_common(ctx, extra_flags = []):
     """Common implementation for rules that build a D binary."""
     toolchain = ctx.toolchains[D_TOOLCHAIN]
     d_bin = ctx.actions.declare_file(ctx.label.name + ".exe" if _is_windows(ctx) else ctx.label.name)
-    d_obj = ctx.actions.declare_file(ctx.label.name + (".obj" if _is_windows(ctx) else ".o"))
     d_compiler = toolchain.d_compiler.files.to_list()[0]
 
     # Dependencies
     deps = ctx.attr.deps + ([toolchain.libphobos] if toolchain.libphobos != None else []) + ([toolchain.druntime] if toolchain.druntime != None else [])
     depinfo = _setup_deps(ctx, deps, ctx.label.name)
 
-    # Build compile command
-    compile_args = _build_compile_arglist(
-        ctx = ctx,
-        depinfo = depinfo,
-        out = d_obj,
-        extra_flags = ["-c"] + extra_flags,
-    )
-
-    # Convert sources to args
-    # This is done to support receiving a File that is a directory, as
-    # args will auto-expand this to the contained files
-    args = ctx.actions.args()
-    args.add_all(compile_args)
-
-    mapped_srcs, generated_srcs_wrapper = _handle_generated_srcs(ctx, depinfo.generated_srcs, d_compiler)
-
-    args.add_all(mapped_srcs)
-
+    d_obj = None
     toolchain_files = [
         toolchain.libphobos.files if toolchain.libphobos != None else depset(),
         toolchain.libphobos_src.files if toolchain.libphobos_src != None else depset(),
         toolchain.druntime_src.files if toolchain.druntime_src != None else depset(),
     ]
 
-    compile_inputs = depset(
-        ctx.files.srcs + ctx.files.extra_files + depinfo.extra_files,
-        transitive = [depinfo.transitive_d_srcs, depinfo.transitive_extra_files] + toolchain_files,
-    )
-    ctx.actions.run(
-        inputs = compile_inputs,
-        tools = [d_compiler, generated_srcs_wrapper] if generated_srcs_wrapper else [d_compiler],
-        outputs = [d_obj],
-        mnemonic = "Dcompile",
-        executable = generated_srcs_wrapper if generated_srcs_wrapper else d_compiler,
-        arguments = [args],
-        use_default_shell_env = True,
-        progress_message = "Compiling D binary " + ctx.label.name,
-    )
+    if ctx.files.srcs:
+        d_obj = ctx.actions.declare_file(ctx.label.name + (".obj" if _is_windows(ctx) else ".o"))
+        # Build compile command
+        compile_args = _build_compile_arglist(
+            ctx = ctx,
+            depinfo = depinfo,
+            out = d_obj,
+            extra_flags = ["-c"] + extra_flags,
+        )
+
+        # Convert sources to args
+        # This is done to support receiving a File that is a directory, as
+        # args will auto-expand this to the contained files
+        args = ctx.actions.args()
+        args.add_all(compile_args)
+
+        mapped_srcs, generated_srcs_wrapper = _handle_generated_srcs(ctx, depinfo.generated_srcs, d_compiler)
+
+        args.add_all(mapped_srcs)
+
+        compile_inputs = depset(
+            ctx.files.srcs + ctx.files.extra_files + depinfo.extra_files,
+            transitive = [depinfo.transitive_d_srcs, depinfo.transitive_extra_files] + toolchain_files,
+        )
+        ctx.actions.run(
+            inputs = compile_inputs,
+            tools = [d_compiler, generated_srcs_wrapper] if generated_srcs_wrapper else [d_compiler],
+            outputs = [d_obj],
+            mnemonic = "Dcompile",
+            executable = generated_srcs_wrapper if generated_srcs_wrapper else d_compiler,
+            arguments = [args],
+            use_default_shell_env = True,
+            progress_message = "Compiling D binary " + ctx.label.name,
+        )
 
     # Build link command
     link_args = _build_link_arglist(
         ctx = ctx,
-        objs = [d_obj.path],
+        objs = [d_obj.path] if d_obj else [],
         depinfo = depinfo,
         out = d_bin,
         c_compiler = toolchain.c_compiler,
@@ -426,7 +428,7 @@ def _d_binary_impl_common(ctx, extra_flags = []):
     )
 
     link_inputs = depset(
-        [d_obj],
+        [d_obj] if d_obj else [],
         transitive = [depinfo.libs, depinfo.transitive_libs] + toolchain_files,
     )
 
