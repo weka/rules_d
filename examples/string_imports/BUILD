@@ -3,7 +3,7 @@ load("//d:d.bzl", "d_binary", "d_library")
 d_library(
     name = "lib",
     srcs = ["lib.d"],
-    extra_files = ["imports/test.txt"],
+    data = ["imports/test.txt"],
     string_imports = ["imports"],
 )
 
