@@ -763,6 +763,7 @@ def d_lib(
     generated_srcs = {},
     test = False,
     exports_lib = None,
+    **kwargs,
 ):
     """d_lib is a macro that can generate header files for a D library.
 
@@ -791,6 +792,7 @@ def d_lib(
       exports_lib: Optional label of a d_library target that contains the exported files.
           If provided, will create an extra `d_source_library` with headers+exports.
           This could be used to break a circular dependency.
+      **kwargs: Additional attributes for the d_library rule.
     """
     exports_hdrs = []
     new_generated_srcs = {}
@@ -822,6 +824,7 @@ def d_lib(
             include_workspace_root = include_workspace_root,
             is_generated = is_generated,
             generated_srcs = new_generated_srcs,
+            **kwargs,
         )
     else:
         d_test_library(
@@ -838,6 +841,7 @@ def d_lib(
             include_workspace_root = include_workspace_root,
             is_generated = is_generated,
             generated_srcs = new_generated_srcs,
+            **kwargs,
         )
 
     if exports_lib:
@@ -853,4 +857,5 @@ def d_lib(
             include_workspace_root = include_workspace_root,
             is_generated = is_generated,
             generated_srcs = new_generated_srcs,
+            **kwargs,
         )
