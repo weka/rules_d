@@ -805,8 +805,13 @@ def d_lib(
             name = hdr,
             src = exp,
         )
+        if exp in generated_srcs:
+            # If the file is already in generated_srcs, let's put di file next to the target d file.
+            target =  generated_srcs[exp]
+        else:
+            target = exp
         exports_hdrs.append(hdr)
-        di_name = exp[:-2] + ".di"  # Replace .d with .di
+        di_name = target[:-2] + ".di"  # Replace .d with .di
         new_generated_srcs[hdr] = di_name
     
     if not test:
