@@ -800,7 +800,7 @@ def d_lib(
     for exp in exports:
         if not exp.endswith(".d"):
             fail("Exported files must be D source files, got: %s" % exp)
-        hdr = name + "_" + exp + "_hdrgen"
+        hdr = name + ".hdrgen/" + exp + "_hdrgen"
         d_header_generator(
             name = hdr,
             src = exp,
