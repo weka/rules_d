@@ -851,9 +851,9 @@ def d_lib(
 
     if exports_lib:
         # Create a d_source_library with the exported files.
-        d_source_library(
+        d_library(
             name = exports_lib,
-            srcs = hdrs + exports_hdrs + exports_no_hdrs,
+            hdrs = hdrs + exports_hdrs + exports_no_hdrs,
             imports = imports,
             string_imports = string_imports,
             data = data,
