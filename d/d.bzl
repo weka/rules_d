@@ -115,16 +115,39 @@ def _build_compile_arglist(ctx, out, depinfo, extra_flags = []):
         [version_flag + "=%s" % v for v in depinfo.versions.to_list()]
     )
 
-def _build_link_arglist(ctx, objs, out, depinfo, c_compiler, link_flags):
+def _sort_objects(objs, link_order):
+    """Sorts the objects in the order they need to be linked."""
+    if not link_order:
+        return [o.path for o in objs]
+    return [
+        obj.path for i, obj in sorted(enumerate(objs), key=lambda x: link_order.get(x[1].path, x[0]))
+    ]
+
+def _link_order_dict(objs, link_order):
+    """Builds a dictionary mapping object file paths to their link order index."""
+    if not link_order:
+        return {}
+    size = len(objs)
+    link_order_dict = dict()
+    for k, v in link_order.items():
+        idx = int(v)
+        if idx < 0:
+            idx = size - 1 - idx
+        for p in k.files.to_list():
+            link_order_dict[p.path] = idx
+    return link_order_dict
+
+def _build_link_arglist(ctx, objs, out, depinfo, c_compiler, link_flags, link_order):
     """Returns a list of strings constituting the D link command arguments."""
+    all_objs = objs + depset(transitive = [depinfo.libs, depinfo.transitive_libs]).to_list()
+    sorted_objs = _sort_objects(all_objs, _link_order_dict(all_objs, link_order))
     return (
         _compilation_mode_flags(ctx) +
         (["-gcc=%s" % c_compiler.files.to_list()[0].path] if c_compiler else []) +
         (link_flags or []) +
         ["-of" + out.path] +
-        [f.path for f in depset(transitive = [depinfo.libs, depinfo.transitive_libs]).to_list()] +
         depinfo.link_flags +
-        objs
+        sorted_objs
     )
 
 def _setup_deps(ctx, deps, name):
@@ -420,11 +443,12 @@ def _d_binary_impl_common(ctx, extra_flags = []):
     # Build link command
     link_args = _build_link_arglist(
         ctx = ctx,
-        objs = [d_obj.path] if d_obj else [],
+        objs = [d_obj] if d_obj else [],
         depinfo = depinfo,
         out = d_bin,
         c_compiler = toolchain.c_compiler,
         link_flags = toolchain.link_flags,
+        link_order = ctx.attr.link_order,
     )
 
     link_inputs = depset(
@@ -671,6 +695,10 @@ _d_library_attrs = {
     "exports": attr.label_list(allow_files = D_FILETYPE),
 }
 
+_d_binary_attrs = {
+    "link_order": attr.label_keyed_string_dict(),
+}
+
 # _d_compile_attrs = {
 #     "_d_compiler": attr.label(
 #         default = Label("//d:dmd"),
@@ -720,14 +748,14 @@ d_source_library = rule(
 
 d_binary = rule(
     _d_binary_impl,
-    attrs = dict(_d_common_attrs.items()),
+    attrs = dict(_d_common_attrs.items() + _d_binary_attrs.items()),
     executable = True,
     toolchains = [D_TOOLCHAIN],
 )
 
 d_test = rule(
     _d_test_impl,
-    attrs = dict(_d_common_attrs.items()),
+    attrs = dict(_d_common_attrs.items() + _d_binary_attrs.items()),
     executable = True,
     test = True,
     toolchains = [D_TOOLCHAIN],
