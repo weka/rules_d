@@ -1,0 +1,58 @@
+load("@rules_d//d:toolchain.bzl", "d_toolchain")
+
+filegroup(
+    name = "all_files",
+    srcs = [
+        ":dmd",
+        ":dub",
+        ":rdmd",
+    ],
+)
+
+filegroup(
+    name = "druntime_files",
+    srcs = glob([
+        "import/core/**",
+        "import/etc/**",
+    ]) + ["import/object.d"],
+)
+
+filegroup(
+    name = "phobos_files",
+    srcs = glob(["import/std/**"]),
+)
+
+filegroup(
+    name = "stdlib_files",
+    srcs = glob(["lib/**"]),
+)
+
+filegroup(
+    name = "dmd",
+    srcs = ["bin/ldmd2"],
+    data = [
+        ":druntime_files",
+        ":phobos_files",
+        ":stdlib_files",
+    ],
+)
+
+filegroup(
+    name = "dub",
+    srcs = ["bin/dub"],
+)
+
+filegroup(
+    name = "rdmd",
+    srcs = ["bin/rdmd"],
+    data = [":dmd"],
+)
+
+d_toolchain(
+    name = "d_toolchain",
+    compiler_flags = [],
+    d_compiler = ":dmd",
+    dub_tool = ":dub",
+    linker_flags = [],
+    rdmd_tool = ":rdmd",
+)

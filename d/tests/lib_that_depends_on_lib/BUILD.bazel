@@ -1,0 +1,12 @@
+load("@rules_d//d:defs.bzl", "d_library")
+
+package(default_visibility = ["//visibility:public"])
+
+d_library(
+    name = "lib_that_depends_on_lib",
+    srcs = ["lib_that_depends_on_lib.d"],
+    deps = [
+        "//d/tests/simple_c_library:simple_c_library_wrapper",
+        "//d/tests/simple_d_library",
+    ],
+)

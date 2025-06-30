@@ -1,1 +1,5 @@
+.bazelrc.user
+.idea/
+.ijwb/
 /bazel-*
+/e2e/*/bazel-*

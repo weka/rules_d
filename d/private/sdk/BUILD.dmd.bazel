@@ -1,0 +1,97 @@
+load("@rules_d//d:toolchain.bzl", "d_toolchain")
+
+filegroup(
+    name = "all_files",
+    srcs = [
+        ":dmd",
+        ":dub",
+        ":rdmd",
+    ],
+)
+
+filegroup(
+    name = "druntime_files",
+    srcs = glob(["src/druntime/import/**"]),
+)
+
+filegroup(
+    name = "phobos_files",
+    srcs = glob(["src/phobos/**"]),
+)
+
+filegroup(
+    name = "stdlib_files",
+    srcs = select({
+        "@platforms//os:linux": glob(
+            ["linux/lib64/**"],
+            allow_empty = True,
+        ),
+        "@platforms//os:macos": glob(
+            ["osx/lib/**"],
+            allow_empty = True,
+        ),
+        "@platforms//os:windows": glob(
+            ["windows/lib64/**"],
+            allow_empty = True,
+        ),
+    }),
+)
+
+filegroup(
+    name = "dmd",
+    srcs = select({
+        "@platforms//os:linux": ["linux/bin64/dmd"],
+        "@platforms//os:macos": ["osx/bin/dmd"],
+        "@platforms//os:windows": ["windows/bin64/dmd.exe"],
+    }),
+    data = [
+        ":druntime_files",
+        ":phobos_files",
+        ":stdlib_files",
+    ],
+)
+
+filegroup(
+    name = "dub",
+    srcs = select({
+        "@platforms//os:linux": ["linux/bin64/dub"],
+        "@platforms//os:macos": ["osx/bin/dub"],
+        "@platforms//os:windows": ["windows/bin64/dub.exe"],
+    }),
+)
+
+filegroup(
+    name = "rdmd",
+    srcs = select({
+        "@platforms//os:linux": ["linux/bin64/rdmd"],
+        "@platforms//os:macos": ["osx/bin/rdmd"],
+        "@platforms//os:windows": ["windows/bin64/rdmd.exe"],
+    }),
+    data = [":dmd"],
+)
+
+d_toolchain(
+    name = "d_toolchain",
+    compiler_flags = [
+        "-conf=",
+        "-I={D_COMPILER_ROOT}/src/druntime/import",
+        "-I={D_COMPILER_ROOT}/src/phobos",
+    ] + select({
+        "@platforms//os:linux": ["-fPIC"],
+        "@platforms//os:macos": [],
+        "@platforms//os:windows": [],
+    }),
+    d_compiler = ":dmd",
+    dub_tool = ":dub",
+    linker_flags = [
+        "-conf=",
+    ] + select({
+        "@platforms//os:linux": [
+            "-L-L{D_COMPILER_ROOT}/linux/lib64",
+            "-L--export-dynamic",
+        ],
+        "@platforms//os:macos": ["-L-L{D_COMPILER_ROOT}/osx/lib"],
+        "@platforms//os:windows": ["-L/LIBPATH:{D_COMPILER_ROOT}/windows/lib64"],
+    }),
+    rdmd_tool = ":rdmd",
+)
