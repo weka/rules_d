@@ -1,6 +1,5 @@
 module(
   name = "rules_d",
-  repo_name = "io_bazel_rules_d",
 )
 
 bazel_dep(

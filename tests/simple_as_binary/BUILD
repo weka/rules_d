@@ -1,4 +1,4 @@
-load("@io_bazel_rules_d//d:d.bzl", "d_binary")
+load("@rules_d//d:d.bzl", "d_binary")
 
 d_binary(
     name = "simple",
