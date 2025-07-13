@@ -79,13 +79,13 @@ def fetch_ldc(version = None):
         build_file = LDC_BUILD_FILE,
     )
 
-def fetch_weka_ldc(version = "1.30.0-weka19-pre"):
+def fetch_weka_ldc(version = "1.30.0-weka19"):
     http_archive(
         name = "weka_ldc_linux_x86_64",
         urls = [
             "https://github.com/weka/ldc/releases/download/v{version}/ldc2-{version}-linux-x86_64.tar.xz".format(version = version),
         ],
-        sha256 = "ce716c73dc2689da7bff9b7b5d414fae5b90b77bca5ab533e830dfffc9929199",
+        sha256 = "bf15208ae97e0ee68cd66d2d18327d808c0eabc47ae2e3e9d22d110f3aae569c",
         strip_prefix = "ldc2-{version}-linux-x86_64".format(version = version),
         build_file = LDC_BUILD_FILE,
     )
@@ -100,7 +100,7 @@ def rules_d_toolchains(ctype = "dmd", version = None):
         fetch_dmd()
         fetch_ldc(version = version)
         fetch_weka_ldc()
-    
+
     elif ctype == "weka-ldc":
         # Special case for Weka LDC, which is a fork of LDC
         fetch_weka_ldc(version = version)
