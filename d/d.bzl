@@ -150,7 +150,7 @@ def _build_link_arglist(ctx, objs, out, depinfo, c_compiler, link_flags, link_or
         sorted_objs
     )
 
-def _setup_deps(ctx, deps, name):
+def _setup_deps(ctx, deps, impl_deps, name):
     """Sets up dependencies.
 
     Walks through dependencies and constructs the commands and flags needed
@@ -159,6 +159,7 @@ def _setup_deps(ctx, deps, name):
     Args:
       ctx: The context of the current target.
       deps: List of deps labels from ctx.attr.deps.
+      impl_deps: List of deps labels from ctx.attr.implementation_deps.
       name: Name of the current target.
 
     Returns:
@@ -241,6 +242,20 @@ def _setup_deps(ctx, deps, name):
             fail("D targets can only depend on d_library, d_source_library, or " +
                  "cc_library targets.", dep)
 
+    impl_srcs = []
+    for dep in impl_deps:
+        if DInfo in dep and hasattr(dep[DInfo], "d_lib"):
+            ddep = dep[DInfo]
+            libs.append(ddep.d_lib)
+            transitive_libs.append(ddep.transitive_libs)
+            impl_srcs.extend(ddep.d_exports)
+        elif CcInfo in dep:
+            native_libs = a_filetype(ctx, _get_libs_for_static_executable(dep))
+            libs.extend(native_libs)
+            transitive_libs.append(depset(native_libs))
+        else:
+            fail("Implementation dependencies can only depend on d_library or cc_library targets.", dep)
+
     return struct(
         libs = depset(libs),
         transitive_libs = depset(transitive = transitive_libs),
@@ -252,6 +267,7 @@ def _setup_deps(ctx, deps, name):
         string_imports = depset(string_imports).to_list(),
         link_flags = depset(link_flags).to_list(),
         generated_srcs = generated_srcs,
+        impl_srcs = impl_srcs,
     )
 
 def _handle_generated_srcs(ctx, generated_srcs, d_compiler):
@@ -267,7 +283,7 @@ def _handle_generated_srcs(ctx, generated_srcs, d_compiler):
             [
                 "#!/bin/sh",
                 "set -e",
-            ] + 
+            ] +
             [
                 "mkdir -p $(dirname %s)\n" % loc +
                 "ln -s $PWD/%s %s" % (src.path, loc) for src, loc in generated_srcs.items()
@@ -286,7 +302,7 @@ def _d_library_impl_common(ctx, extra_flags = []):
 
     # Dependencies
     deps = ctx.attr.deps + ([toolchain.libphobos] if toolchain.libphobos != None else []) + ([toolchain.druntime] if toolchain.druntime != None else [])
-    depinfo = _setup_deps(ctx, ctx.attr.deps, ctx.label.name)
+    depinfo = _setup_deps(ctx, ctx.attr.deps, ctx.attr.implementation_deps, ctx.label.name)
 
     public_srcs = ctx.files.hdrs + ctx.files.exports
     if not public_srcs:
@@ -314,7 +330,7 @@ def _d_library_impl_common(ctx, extra_flags = []):
                 generated_srcs = depinfo.generated_srcs,
             ),
         ]
- 
+
     #d_lib = ctx.actions.declare_file((ctx.label.name + ".lib") if _is_windows(ctx) else ("lib" + ctx.label.name + ".a"))
     d_lib = ctx.actions.declare_file(ctx.label.name + ".o")
 
@@ -345,7 +361,8 @@ def _d_library_impl_common(ctx, extra_flags = []):
         ctx.files.hdrs +
         ctx.files.exports +
         ctx.files.data +
-        depinfo.data,
+        depinfo.data +
+        depinfo.impl_srcs,
         transitive = [
             depinfo.transitive_d_srcs,
             depinfo.transitive_data,
@@ -396,7 +413,7 @@ def _d_binary_impl_common(ctx, extra_flags = []):
 
     # Dependencies
     deps = ctx.attr.deps + ([toolchain.libphobos] if toolchain.libphobos != None else []) + ([toolchain.druntime] if toolchain.druntime != None else [])
-    depinfo = _setup_deps(ctx, deps, ctx.label.name)
+    depinfo = _setup_deps(ctx, deps, [], ctx.label.name)
 
     d_obj = None
     toolchain_files = [
@@ -646,16 +663,16 @@ def _d_header_generator_impl(ctx):
     toolchain = ctx.toolchains[D_TOOLCHAIN]
     if not toolchain.hdrgen_flags:
         fail("d_header_generator requires a toolchain with hdrgen_flags set.")
-    
+
     d_compiler = toolchain.d_compiler.files.to_list()[0]
 
     infile = ctx.file.src
     if not infile:
         fail("d_header_generator requires a single source file.")
-    
+
     if not infile.path.endswith(".d"):
         fail("d_header_generator only supports .d files, got: %s" % infile.path)
-    
+
     header = ctx.actions.declare_file(ctx.label.name + ".di")
 
     ctx.actions.run(
@@ -693,6 +710,7 @@ _d_common_attrs = {
 _d_library_attrs = {
     "hdrs": attr.label_list(allow_files = D_FILETYPE, allow_empty = True),
     "exports": attr.label_list(allow_files = D_FILETYPE),
+    "implementation_deps": attr.label_list(),
 }
 
 _d_binary_attrs = {
@@ -786,6 +804,7 @@ def d_lib(
     exports = [],
     exports_no_hdrs = [],
     deps = [],
+    implementation_deps = [],
     include_workspace_root = True,
     is_generated = False,
     generated_srcs = {},
@@ -813,6 +832,7 @@ def d_lib(
       exports: List of D source files to export, which will have headers generated for them.
       exports_no_hdrs: List of D source files to export without generating headers.
       deps: List of dependencies for this library.
+      implementation_deps: List of implementation dependencies for this library.
       include_workspace_root: Whether to include the workspace root in import paths.
       is_generated: Whether this library is generated (used for generated sources).
       generated_srcs: A dictionary mapping generated source files to their desired locations.
@@ -841,7 +861,7 @@ def d_lib(
         exports_hdrs.append(hdr)
         di_name = target[:-2] + ".di"  # Replace .d with .di
         new_generated_srcs[hdr] = di_name
-    
+
     if not test:
         d_library(
             name = name,
@@ -854,6 +874,7 @@ def d_lib(
             hdrs = hdrs + exports_hdrs,
             exports = exports_no_hdrs,
             deps = deps,
+            implementation_deps = implementation_deps,
             include_workspace_root = include_workspace_root,
             is_generated = is_generated,
             generated_srcs = new_generated_srcs,
@@ -871,6 +892,7 @@ def d_lib(
             hdrs = hdrs + exports_hdrs,
             exports = exports_no_hdrs,
             deps = deps,
+            implementation_deps = implementation_deps,
             include_workspace_root = include_workspace_root,
             is_generated = is_generated,
             generated_srcs = new_generated_srcs,
