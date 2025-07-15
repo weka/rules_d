@@ -4,10 +4,11 @@
     {
       "name": "Dragos Carp",
       "email": "dragoscarp@gmail.com",
-      "github": "dcarp"
+      "github": "dcarp",
+      "github_user_id": 1738497
     }
   ],
-  "repository": ["github:bazelbuild/rules_d", "github:bazel-contrib/rules_d"],
+  "repository": ["github:bazel-contrib/rules_d"],
   "versions": [],
   "yanked_versions": {}
 }
