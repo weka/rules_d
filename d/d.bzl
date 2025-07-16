@@ -286,7 +286,7 @@ def _handle_generated_srcs(ctx, generated_srcs, d_compiler):
             ] +
             [
                 "mkdir -p $(dirname %s)\n" % loc +
-                "ln -s $PWD/%s %s" % (src.path, loc) for src, loc in generated_srcs.items()
+                "[ -f $PWD/%s ] && ln -s $PWD/%s %s" % (src.path, src.path, loc) for src, loc in generated_srcs.items()
             ] + [
                 "%s $*" % d_compiler.path,
             ]),
