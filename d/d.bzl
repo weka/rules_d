@@ -703,7 +703,7 @@ _d_common_attrs = {
     "versions": attr.string_list(),
     "include_workspace_root": attr.bool(default = True),
     "is_generated": attr.bool(default = False),
-    "generated_srcs": attr.label_keyed_string_dict(),
+    "generated_srcs": attr.label_keyed_string_dict(allow_files = True),
     "deps": attr.label_list(),
 }
 
