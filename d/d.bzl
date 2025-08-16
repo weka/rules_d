@@ -150,6 +150,15 @@ def _build_link_arglist(ctx, objs, out, depinfo, c_compiler, link_flags, link_or
         sorted_objs
     )
 
+def _find_gensrc_location(loc, src):
+    if loc.startswith("@"):
+        fail("Cannot place the generated source %s into location %s" % (
+                src, loc))
+    if loc.startswith("//"):
+        label = Label(loc)
+        return label.package + "/" + label.name
+    return src.label.package + "/" + loc
+
 def _setup_deps(ctx, deps, impl_deps, name):
     """Sets up dependencies.
 
@@ -195,7 +204,7 @@ def _setup_deps(ctx, deps, impl_deps, name):
     string_imports = [_build_import(ctx.label, im, gen_dir_for_imports) for im in ctx.attr.string_imports]
     link_flags = []
     generated_srcs = {
-        src.files.to_list()[0]: src.label.package + "/" + loc for src, loc in ctx.attr.generated_srcs.items()}
+        src.files.to_list()[0]: _find_gensrc_location(loc, src) for src, loc in ctx.attr.generated_srcs.items()}
     for dep in deps:
         if DInfo in dep and hasattr(dep[DInfo], "d_lib"):
             # The dependency is a d_library.
