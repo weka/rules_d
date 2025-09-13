@@ -295,6 +295,16 @@ def _handle_generated_srcs(ctx, generated_srcs, d_compiler):
 
     return (mapped_srcs, generated_srcs_file)
 
+def _replace_di_with_d(src):
+    if len(src) >= 3 and src[-3:] == ".di":
+        return src[-3:] + ".d"
+    return src
+
+def _maybe_replace_di(ctx, srcs):
+    if not ctx.attr.hack_replace_di_with_d:
+        return srcs
+    return [_replace_di_with_d(src) for src in srcs]
+
 def _d_library_impl_common(ctx, extra_flags = []):
     """Implementation of the d_library rule."""
     toolchain = ctx.toolchains[D_TOOLCHAIN]
@@ -350,7 +360,7 @@ def _d_library_impl_common(ctx, extra_flags = []):
 
     mapped_srcs, generated_srcs_wrapper = _handle_generated_srcs(ctx, depinfo.generated_srcs, d_compiler)
 
-    args.add_all(mapped_srcs)
+    args.add_all(_maybe_replace_di(ctx, mapped_srcs))
 
     phobos_files = toolchain.libphobos.files if toolchain.libphobos != None else depset()
     phobos_src_files = toolchain.libphobos_src.files if toolchain.libphobos_src != None else depset()
@@ -711,6 +721,7 @@ _d_library_attrs = {
     "hdrs": attr.label_list(allow_files = D_FILETYPE, allow_empty = True),
     "exports": attr.label_list(allow_files = D_FILETYPE),
     "implementation_deps": attr.label_list(),
+    "hack_replace_di_with_d": attr.bool(default = False),
 }
 
 _d_binary_attrs = {
