@@ -50,7 +50,7 @@ d_toolchain = rule(
         "d_compiler": attr.label(
             executable = True,
             # allow_files = True,
-            cfg = "host",
+            cfg = "exec",
         ),
         "c_compiler": attr.label(
             executable = True,
