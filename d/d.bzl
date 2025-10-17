@@ -62,8 +62,8 @@ def _default_compilation_mode_flags(ctx):
     else:
         return DEFAULT_COMPILATION_MODE_FLAGS_POSIX[ctx.var["COMPILATION_MODE"]]
 
-def _compilation_mode_flags(ctx):
-    """Returns a list of flags based on the compilation_mode."""
+def _compilation_mode_flags_helper(ctx):
+    """Helper function to return the flags for the compilation mode."""
     toolchain = ctx.toolchains[D_TOOLCHAIN]
     compilation_mode = ctx.var["COMPILATION_MODE"]
     default_flags = _default_compilation_mode_flags(ctx)
@@ -75,6 +75,11 @@ def _compilation_mode_flags(ctx):
         return toolchain.fastbuild_flags or default_flags
     else:
         fail("Invalid compilation mode: %s" % compilation_mode)
+
+def _compilation_mode_flags(ctx):
+    """Returns a list of flags based on the compilation mode."""
+    toolchain = ctx.toolchains[D_TOOLCHAIN]
+    return (toolchain.common_flags or []) + _compilation_mode_flags_helper(ctx)
 
 def _format_version(name):
     """Formats the string name to be used in a --version flag."""
