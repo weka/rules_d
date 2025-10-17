@@ -10,14 +10,14 @@ D_TOOLCHAIN = "//d:toolchain_type"
 #         "ldc",
 #     ],
 # )
-# 
+#
 # config_setting(
 #     name = "dmd",
 #     flag_values = {
 #         ":compiler_type": "dmd",
 #     },
 # )
-# 
+#
 # config_setting(
 #     name = "ldc",
 #     flag_values = {
@@ -66,7 +66,7 @@ def _d_toolchain_impl(ctx):
             druntime = config.druntime or ctx.attr.druntime,
             druntime_src = config.druntime_src or ctx.attr.druntime_src,
             version_flag = config.version_flag or ctx.attr.version_flag,
-            common_flags = config.common_flags or ctx.attr.common_flags,
+            common_flags = config.copts_common or ctx.attr.common_flags,
             fastbuild_flags = config.copts_per_mode["fastbuild"] or ctx.attr.fastbuild_flags,
             dbg_flags = config.copts_per_mode["dbg"] or ctx.attr.dbg_flags,
             opt_flags = config.copts_per_mode["opt"] or ctx.attr.opt_flags,

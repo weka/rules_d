@@ -107,6 +107,10 @@ def _build_compile_arglist(ctx, out, depinfo, extra_flags = []):
     gen_dir = ctx.genfiles_dir.path if ctx.attr.is_generated else None
 
     ws_root = gen_dir if ctx.attr.is_generated else "."
+
+    versions = depset(
+        toolchain.global_versions_common + toolchain.global_versions_per_mode[ctx.var["COMPILATION_MODE"]],
+        transitive = [depinfo.versions])
     return (
         _compilation_mode_flags(ctx) +
         extra_flags + [
@@ -117,7 +121,7 @@ def _build_compile_arglist(ctx, out, depinfo, extra_flags = []):
         ["-I%s" % im for im in depinfo.imports] +
         ["-J%s" % im for im in depinfo.string_imports] +
         # toolchain.import_flags +
-        [version_flag + "=%s" % v for v in depinfo.versions.to_list()]
+        [version_flag + "=%s" % v for v in versions.to_list()]
     )
 
 def _sort_objects(objs, link_order):
