@@ -154,6 +154,7 @@ def _build_link_arglist(ctx, objs, out, depinfo, c_compiler, link_flags, link_or
         _compilation_mode_flags(ctx) +
         (["-gcc=%s" % c_compiler.files.to_list()[0].path] if c_compiler else []) +
         (link_flags or []) +
+        (["-L--dynamic-list=%s" % ctx.files.dynamic_symbols[0].path] if ctx.files.dynamic_symbols else []) +
         ["-of" + out.path] +
         depinfo.link_flags +
         sorted_objs
@@ -487,7 +488,7 @@ def _d_binary_impl_common(ctx, extra_flags = []):
     )
 
     link_inputs = depset(
-        [d_obj] if d_obj else [],
+        ([d_obj] if d_obj else []) + ([ctx.files.dynamic_symbols[0]] if ctx.files.dynamic_symbols else []),
         transitive = [depinfo.libs, depinfo.transitive_libs] + toolchain_files,
     )
 
@@ -732,6 +733,7 @@ _d_library_attrs = {
 }
 
 _d_binary_attrs = {
+    "dynamic_symbols" : attr.label(allow_files = True),
     "link_order": attr.label_keyed_string_dict(),
 }
 
