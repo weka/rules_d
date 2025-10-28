@@ -483,7 +483,7 @@ def _d_binary_impl_common(ctx, extra_flags = []):
         depinfo = depinfo,
         out = d_bin,
         c_compiler = toolchain.c_compiler,
-        link_flags = toolchain.link_flags,
+        link_flags = toolchain.link_flags + ["-L%s" % linkopt for linkopt in ctx.attr.linkopts],
         link_order = ctx.attr.link_order,
     )
 
