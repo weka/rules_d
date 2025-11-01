@@ -393,7 +393,7 @@ def _d_library_impl_common(ctx, extra_flags = []):
 
     ctx.actions.run(
         inputs = compile_inputs,
-        tools = [d_compiler, generated_srcs_wrapper] if generated_srcs_wrapper else [d_compiler],
+        tools = toolchain.d_compiler.files.to_list() + [generated_srcs_wrapper] if generated_srcs_wrapper else [],
         outputs = [d_lib],
         mnemonic = "Dcompile",
         executable = generated_srcs_wrapper if generated_srcs_wrapper else d_compiler,
@@ -467,7 +467,7 @@ def _d_binary_impl_common(ctx, extra_flags = []):
         )
         ctx.actions.run(
             inputs = compile_inputs,
-            tools = [d_compiler, generated_srcs_wrapper] if generated_srcs_wrapper else [d_compiler],
+            tools = toolchain.d_compiler.files.to_list() + [generated_srcs_wrapper] if generated_srcs_wrapper else [],
             outputs = [d_obj],
             mnemonic = "Dcompile",
             executable = generated_srcs_wrapper if generated_srcs_wrapper else d_compiler,
@@ -494,7 +494,7 @@ def _d_binary_impl_common(ctx, extra_flags = []):
 
     ctx.actions.run(
         inputs = link_inputs,
-        tools = [d_compiler] + (toolchain.c_compiler.files.to_list() if toolchain.c_compiler else []),
+        tools = toolchain.d_compiler.files.to_list() + (toolchain.c_compiler.files.to_list() if toolchain.c_compiler else []),
         outputs = [d_bin],
         mnemonic = "Dlink",
         executable = d_compiler,
@@ -669,7 +669,7 @@ def _d_docs_impl(ctx):
     ddoc_inputs = depset(target.srcs, transitive = [target.transitive_srcs] + toolchain_files)
     ctx.actions.run_shell(
         inputs = ddoc_inputs,
-        tools = [d_compiler],
+        tools = toolchain.d_compiler.files.to_list(),
         outputs = [d_docs_zip],
         mnemonic = "Ddoc",
         command = " ".join(doc_cmd),
@@ -696,7 +696,7 @@ def _d_header_generator_impl(ctx):
 
     ctx.actions.run(
         inputs = [ctx.file.src],
-        tools = [d_compiler],
+        tools = toolchain.d_compiler.files.to_list(),
         outputs = [header],
         mnemonic = "Dhdrgen",
         executable = d_compiler,
