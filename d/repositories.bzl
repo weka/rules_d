@@ -79,13 +79,13 @@ def fetch_ldc(version = None):
         build_file = LDC_BUILD_FILE,
     )
 
-def fetch_weka_ldc(version = "1.30.0-weka19"):
+def fetch_weka_ldc(version = "1.30.0-weka20"):
     http_archive(
         name = "weka_ldc_linux_x86_64",
         urls = [
             "https://github.com/weka/ldc/releases/download/v{version}/ldc2-{version}-linux-x86_64.tar.xz".format(version = version),
         ],
-        sha256 = "bf15208ae97e0ee68cd66d2d18327d808c0eabc47ae2e3e9d22d110f3aae569c",
+        sha256 = "7c502c5f09535dd9c85b4fa054682a8b078ef155807d73a0ec551d12b26afcbc",
         strip_prefix = "ldc2-{version}-linux-x86_64".format(version = version),
         build_file = LDC_BUILD_FILE,
     )
