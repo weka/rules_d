@@ -25,5 +25,6 @@ DToolchainConfigInfo = provider(
         "linkopts_common",
         "global_versions_per_mode",
         "global_versions_common",
+        "debug_repo_root_override",
     ],
 )

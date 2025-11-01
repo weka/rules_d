@@ -289,30 +289,31 @@ def _setup_deps(ctx, deps, impl_deps, name):
         impl_srcs = impl_srcs,
     )
 
-def _handle_generated_srcs(ctx, generated_srcs, d_compiler):
+def _handle_generated_srcs(ctx, generated_srcs, d_compiler, debug_repo_root_override):
     """Handles the generated source files."""
-    if not generated_srcs:
+    if not generated_srcs and not debug_repo_root_override:
         return (ctx.files.srcs, None)
     mapped_srcs = [src if src not in generated_srcs else generated_srcs[src] for src in ctx.files.srcs]
 
-    generated_srcs_file = ctx.actions.declare_file(ctx.label.name + "_generated_srcs_wrapper.sh")
+    wrapper = ctx.actions.declare_file(ctx.label.name + "_d_compile_wrapper.sh")
+    debug_prefix_map = "-fdebug-prefix-map=$PWD=%s " % debug_repo_root_override if debug_repo_root_override else ""
     ctx.actions.write(
-        output = generated_srcs_file,
+        output = wrapper,
         content = "\n".join(
             [
-                "#!/bin/sh",
+                "#!/bin/bash",
                 "set -e",
             ] +
             [
                 "mkdir -p $(dirname %s)\n" % loc +
                 "[ -f $PWD/%s ] && ln -s $PWD/%s %s" % (src.path, src.path, loc) for src, loc in generated_srcs.items()
             ] + [
-                "%s $*" % d_compiler.path,
+                "%s %s$*" % (d_compiler.path, debug_prefix_map),
             ]),
         is_executable = True,
     )
 
-    return (mapped_srcs, generated_srcs_file)
+    return (mapped_srcs, wrapper)
 
 def _d_library_impl_common(ctx, extra_flags = []):
     """Implementation of the d_library rule."""
@@ -367,7 +368,7 @@ def _d_library_impl_common(ctx, extra_flags = []):
     args = ctx.actions.args()
     args.add_all(compile_args)
 
-    mapped_srcs, generated_srcs_wrapper = _handle_generated_srcs(ctx, depinfo.generated_srcs, d_compiler)
+    mapped_srcs, generated_srcs_wrapper = _handle_generated_srcs(ctx, depinfo.generated_srcs, d_compiler, toolchain.debug_repo_root_override)
 
     args.add_all(mapped_srcs)
 
@@ -391,12 +392,13 @@ def _d_library_impl_common(ctx, extra_flags = []):
         ],
     )
 
+    executable = generated_srcs_wrapper if generated_srcs_wrapper else d_compiler
     ctx.actions.run(
         inputs = compile_inputs,
         tools = toolchain.d_compiler.files.to_list() + ([generated_srcs_wrapper] if generated_srcs_wrapper else []),
         outputs = [d_lib],
         mnemonic = "Dcompile",
-        executable = generated_srcs_wrapper if generated_srcs_wrapper else d_compiler,
+        executable = executable,
         arguments = [args],
         use_default_shell_env = True,
         progress_message = "Compiling D library " + ctx.label.name,
@@ -457,7 +459,7 @@ def _d_binary_impl_common(ctx, extra_flags = []):
         args = ctx.actions.args()
         args.add_all(compile_args)
 
-        mapped_srcs, generated_srcs_wrapper = _handle_generated_srcs(ctx, depinfo.generated_srcs, d_compiler)
+        mapped_srcs, generated_srcs_wrapper = _handle_generated_srcs(ctx, depinfo.generated_srcs, d_compiler, toolchain.debug_repo_root_override)
 
         args.add_all(mapped_srcs)
 

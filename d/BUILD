@@ -105,6 +105,7 @@ d_toolchain(
     hdrgen_flags = [
         "-Honly",
     ],
+    debug_repo_root_override = "/source",
 )
 
 toolchain(

@@ -52,6 +52,7 @@ def _d_toolchain_impl(ctx):
                 "dbg": [],
                 "opt": [],
             },
+            debug_repo_root_override = ctx.attr.debug_repo_root_override,
         )
     else:
         toolchain_info = platform_common.ToolchainInfo(
@@ -73,6 +74,7 @@ def _d_toolchain_impl(ctx):
             hdrgen_flags = config.hdrgen_flags,
             global_versions_common = config.global_versions_common,
             global_versions_per_mode = config.global_versions_per_mode,
+            debug_repo_root_override = config.debug_repo_root_override,
         )
     return [toolchain_info]
 
@@ -106,6 +108,7 @@ d_toolchain = rule(
         "dbg_flags": attr.string_list(),
         "opt_flags": attr.string_list(),
         "hdrgen_flags": attr.string_list(),
+        "debug_repo_root_override": attr.string(),
         "config": attr.label(
             providers = [DToolchainConfigInfo],
         ),
