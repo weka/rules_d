@@ -393,7 +393,7 @@ def _d_library_impl_common(ctx, extra_flags = []):
 
     ctx.actions.run(
         inputs = compile_inputs,
-        tools = toolchain.d_compiler.files.to_list() + [generated_srcs_wrapper] if generated_srcs_wrapper else [],
+        tools = toolchain.d_compiler.files.to_list() + ([generated_srcs_wrapper] if generated_srcs_wrapper else []),
         outputs = [d_lib],
         mnemonic = "Dcompile",
         executable = generated_srcs_wrapper if generated_srcs_wrapper else d_compiler,
@@ -467,7 +467,7 @@ def _d_binary_impl_common(ctx, extra_flags = []):
         )
         ctx.actions.run(
             inputs = compile_inputs,
-            tools = toolchain.d_compiler.files.to_list() + [generated_srcs_wrapper] if generated_srcs_wrapper else [],
+            tools = toolchain.d_compiler.files.to_list() + ([generated_srcs_wrapper] if generated_srcs_wrapper else []),
             outputs = [d_obj],
             mnemonic = "Dcompile",
             executable = generated_srcs_wrapper if generated_srcs_wrapper else d_compiler,
