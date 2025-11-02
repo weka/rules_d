@@ -29,6 +29,14 @@ ZIP_PATH = "/usr/bin/zip"
 
 DInfo = provider()
 
+def _with_runfiles(tool):
+    """Returns a list of files _and_ runfiles for `tool`."""
+    files = tool.files.to_list()
+    runfiles = tool[DefaultInfo].default_runfiles
+    if runfiles:
+        files += runfiles.files.to_list()
+    return files
+
 def _files_directory(files):
     """Returns the shortest parent directory of a list of files."""
     dir = files[0].dirname
@@ -395,7 +403,7 @@ def _d_library_impl_common(ctx, extra_flags = []):
     executable = generated_srcs_wrapper if generated_srcs_wrapper else d_compiler
     ctx.actions.run(
         inputs = compile_inputs,
-        tools = toolchain.d_compiler.files.to_list() + ([generated_srcs_wrapper] if generated_srcs_wrapper else []),
+        tools = _with_runfiles(toolchain.d_compiler) + ([generated_srcs_wrapper] if generated_srcs_wrapper else []),
         outputs = [d_lib],
         mnemonic = "Dcompile",
         executable = executable,
@@ -469,7 +477,7 @@ def _d_binary_impl_common(ctx, extra_flags = []):
         )
         ctx.actions.run(
             inputs = compile_inputs,
-            tools = toolchain.d_compiler.files.to_list() + ([generated_srcs_wrapper] if generated_srcs_wrapper else []),
+            tools = _with_runfiles(toolchain.d_compiler) + ([generated_srcs_wrapper] if generated_srcs_wrapper else []),
             outputs = [d_obj],
             mnemonic = "Dcompile",
             executable = generated_srcs_wrapper if generated_srcs_wrapper else d_compiler,
@@ -496,7 +504,7 @@ def _d_binary_impl_common(ctx, extra_flags = []):
 
     ctx.actions.run(
         inputs = link_inputs,
-        tools = toolchain.d_compiler.files.to_list() + (toolchain.c_compiler.files.to_list() if toolchain.c_compiler else []),
+        tools = _with_runfiles(toolchain.d_compiler) + (_with_runfiles(toolchain.c_compiler) if toolchain.c_compiler else []),
         outputs = [d_bin],
         mnemonic = "Dlink",
         executable = d_compiler,
@@ -671,7 +679,7 @@ def _d_docs_impl(ctx):
     ddoc_inputs = depset(target.srcs, transitive = [target.transitive_srcs] + toolchain_files)
     ctx.actions.run_shell(
         inputs = ddoc_inputs,
-        tools = toolchain.d_compiler.files.to_list(),
+        tools = _with_runfiles(toolchain.d_compiler),
         outputs = [d_docs_zip],
         mnemonic = "Ddoc",
         command = " ".join(doc_cmd),
@@ -698,7 +706,7 @@ def _d_header_generator_impl(ctx):
 
     ctx.actions.run(
         inputs = [ctx.file.src],
-        tools = toolchain.d_compiler.files.to_list(),
+        tools = _with_runfiles(toolchain.d_compiler),
         outputs = [header],
         mnemonic = "Dhdrgen",
         executable = d_compiler,
