@@ -18,6 +18,7 @@ DToolchainConfigInfo = provider(
         "import_flags",  # unused
         "version_flag",
         "hdrgen_flags",
+        "output_bc_flags",
         # compilation modes
         "copts_per_mode",
         "copts_common",

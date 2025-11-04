@@ -46,6 +46,7 @@ def _d_toolchain_impl(ctx):
             dbg_flags = ctx.attr.dbg_flags,
             opt_flags = ctx.attr.opt_flags,
             hdrgen_flags = ctx.attr.hdrgen_flags,
+            output_bc_flags = ctx.attr.output_bc_flags,
             global_versions_common = [],
             global_versions_per_mode = {
                 "fastbuild": [],
@@ -72,6 +73,7 @@ def _d_toolchain_impl(ctx):
             dbg_flags = config.copts_per_mode["dbg"] or ctx.attr.dbg_flags,
             opt_flags = config.copts_per_mode["opt"] or ctx.attr.opt_flags,
             hdrgen_flags = config.hdrgen_flags,
+            output_bc_flags = config.output_bc_flags,
             global_versions_common = config.global_versions_common,
             global_versions_per_mode = config.global_versions_per_mode,
             debug_repo_root_override = config.debug_repo_root_override,
@@ -108,6 +110,7 @@ d_toolchain = rule(
         "dbg_flags": attr.string_list(),
         "opt_flags": attr.string_list(),
         "hdrgen_flags": attr.string_list(),
+        "output_bc_flags": attr.string_list(),
         "debug_repo_root_override": attr.string(),
         "config": attr.label(
             providers = [DToolchainConfigInfo],
