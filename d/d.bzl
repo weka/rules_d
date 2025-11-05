@@ -125,6 +125,7 @@ def _build_compile_arglist(ctx, out, depinfo, extra_flags = []):
             "-of" + out.path,
             "-w",
         ] +
+        (toolchain.output_bc_flags if ctx.attr.compile_via_bc else []) +
         (["-I%s" % ws_root] if ctx.attr.include_workspace_root else []) +
         ["-I%s" % im for im in depinfo.imports] +
         ["-J%s" % im for im in depinfo.string_imports] +
@@ -328,6 +329,9 @@ def _d_library_impl_common(ctx, extra_flags = []):
     toolchain = ctx.toolchains[D_TOOLCHAIN]
     d_compiler = toolchain.d_compiler.files.to_list()[0]
 
+    if ctx.attr.compile_via_bc and not toolchain.output_bc_flags:
+        fail("'compile_via_bc' requires a toolchain with 'output_bc_flags' set")
+
     # Dependencies
     deps = ctx.attr.deps + ([toolchain.libphobos] if toolchain.libphobos != None else []) + ([toolchain.druntime] if toolchain.druntime != None else [])
     depinfo = _setup_deps(ctx, ctx.attr.deps, ctx.attr.implementation_deps, ctx.label.name)
@@ -361,11 +365,14 @@ def _d_library_impl_common(ctx, extra_flags = []):
 
     #d_lib = ctx.actions.declare_file((ctx.label.name + ".lib") if _is_windows(ctx) else ("lib" + ctx.label.name + ".a"))
     d_lib = ctx.actions.declare_file(ctx.label.name + ".o")
+    d_lib_bc = None
+    if ctx.attr.compile_via_bc:
+        d_lib_bc = ctx.actions.declare_file(ctx.label.name + ".bc")
 
     # Build compile command.
     compile_args = _build_compile_arglist(
         ctx = ctx,
-        out = d_lib,
+        out = d_lib if not d_lib_bc else d_lib_bc,
         depinfo = depinfo,
         extra_flags = ["-c"] + extra_flags,
     )
@@ -404,7 +411,7 @@ def _d_library_impl_common(ctx, extra_flags = []):
     ctx.actions.run(
         inputs = compile_inputs,
         tools = _with_runfiles(toolchain.d_compiler) + ([generated_srcs_wrapper] if generated_srcs_wrapper else []),
-        outputs = [d_lib],
+        outputs = [d_lib] if not d_lib_bc else [d_lib_bc],
         mnemonic = "Dcompile",
         executable = executable,
         arguments = [args],
@@ -412,6 +419,20 @@ def _d_library_impl_common(ctx, extra_flags = []):
         progress_message = "Compiling D library " + ctx.label.name,
     )
 
+    if d_lib_bc:
+        # need to compile .bc -> .o in an extra step
+        # this is a hack, just hoping there is some clang is not good
+        # TODO: enforce this is only used with toolchain.c_compiler
+        clang = toolchain.c_compiler.files[0] if toolchain.c_compiler else "clang"
+        ctx.actions.run(
+            inputs = [d_lib_bc],
+            tools = _with_runfiles(toolchain.c_compiler) if toolchain.c_compiler else [],
+            outputs = [d_lib],
+            executable = clang,
+            arguments = ["-c", "-o", d_lib.path, d_lib_bc.path],
+            use_default_shell_env = True,
+            progress_message = "Compiling bitcode for D library " + ctx.label.name,
+        )
     return [
         DefaultInfo(
             files = depset([d_lib]),
@@ -440,6 +461,9 @@ def _d_binary_impl_common(ctx, extra_flags = []):
     d_bin = ctx.actions.declare_file(ctx.label.name + ".exe" if _is_windows(ctx) else ctx.label.name)
     d_compiler = toolchain.d_compiler.files.to_list()[0]
 
+    if ctx.attr.compile_via_bc and not ctx.files.srcs:
+        fail("'compile_via_bc' only makes sense if you have sources to compile")
+
     # Dependencies
     deps = ctx.attr.deps + ([toolchain.libphobos] if toolchain.libphobos != None else []) + ([toolchain.druntime] if toolchain.druntime != None else [])
     depinfo = _setup_deps(ctx, deps, [], ctx.label.name)
@@ -452,12 +476,19 @@ def _d_binary_impl_common(ctx, extra_flags = []):
     ]
 
     if ctx.files.srcs:
+        d_obj_bc = None
+
+        if ctx.attr.compile_via_bc:
+            if not toolchain.output_bc_flags:
+                fail("'compile_via_bc' requires a toolchain with 'output_bc_flags' set")
+            d_obj_bc = ctx.actions.declare_file(ctx.label.name + ".bc")
+        
         d_obj = ctx.actions.declare_file(ctx.label.name + (".obj" if _is_windows(ctx) else ".o"))
         # Build compile command
         compile_args = _build_compile_arglist(
             ctx = ctx,
             depinfo = depinfo,
-            out = d_obj,
+            out = d_obj if not d_obj_bc else d_obj_bc,
             extra_flags = ["-c"] + extra_flags,
         )
 
@@ -478,13 +509,28 @@ def _d_binary_impl_common(ctx, extra_flags = []):
         ctx.actions.run(
             inputs = compile_inputs,
             tools = _with_runfiles(toolchain.d_compiler) + ([generated_srcs_wrapper] if generated_srcs_wrapper else []),
-            outputs = [d_obj],
+            outputs = [d_obj] if not d_obj_bc else [d_obj_bc],
             mnemonic = "Dcompile",
             executable = generated_srcs_wrapper if generated_srcs_wrapper else d_compiler,
             arguments = [args],
             use_default_shell_env = True,
             progress_message = "Compiling D binary " + ctx.label.name,
         )
+
+        if d_obj_bc:
+            # need to compile .bc -> .o in an extra step
+            # this is a hack, just hoping there is some clang is not good
+            # TODO: enforce this is only used with toolchain.c_compiler
+            clang = toolchain.c_compiler.files[0] if toolchain.c_compiler else "clang"
+            ctx.actions.run(
+                inputs = [d_obj_bc],
+                tools = _with_runfiles(toolchain.c_compiler) if toolchain.c_compiler else [],
+                outputs = [d_obj],
+                executable = clang,
+                arguments = ["-c", "-o", d_obj.path, d_obj_bc.path],
+                use_default_shell_env = True,
+                progress_message = "Compiling bitcode for D binary " + ctx.label.name,
+            )
 
     # Build link command
     link_args = _build_link_arglist(
@@ -733,6 +779,7 @@ _d_common_attrs = {
     "include_workspace_root": attr.bool(default = True),
     "is_generated": attr.bool(default = False),
     "generated_srcs": attr.label_keyed_string_dict(allow_files = True),
+    "compile_via_bc": attr.bool(default = False),
     "deps": attr.label_list(),
 }
 
