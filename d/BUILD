@@ -74,6 +74,7 @@ d_toolchain(
     lib_flags = [
         "-lib", "-oq",
     ],
+    output_bc_flags = ["--output-bc"],
 )
 
 toolchain(
@@ -106,6 +107,7 @@ d_toolchain(
         "-Honly",
     ],
     debug_repo_root_override = "/source",
+    output_bc_flags = ["--output-bc"],
 )
 
 toolchain(
