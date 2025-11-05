@@ -429,7 +429,7 @@ def _d_library_impl_common(ctx, extra_flags = []):
             tools = _with_runfiles(toolchain.c_compiler) if toolchain.c_compiler else [],
             outputs = [d_lib],
             executable = clang,
-            arguments = ["-c", "-o", d_lib.path, d_lib_bc.path],
+            arguments = toolchain.codegen_flags + ["-c", "-o", d_lib.path, d_lib_bc.path],
             use_default_shell_env = True,
             progress_message = "Compiling bitcode for D library " + ctx.label.name,
         )
@@ -527,7 +527,7 @@ def _d_binary_impl_common(ctx, extra_flags = []):
                 tools = _with_runfiles(toolchain.c_compiler) if toolchain.c_compiler else [],
                 outputs = [d_obj],
                 executable = clang,
-                arguments = ["-c", "-o", d_obj.path, d_obj_bc.path],
+                arguments = toolchain.codegen_flags + ["-c", "-o", d_obj.path, d_obj_bc.path],
                 use_default_shell_env = True,
                 progress_message = "Compiling bitcode for D binary " + ctx.label.name,
             )

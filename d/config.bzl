@@ -24,6 +24,7 @@ DToolchainConfigInfo = provider(
         "copts_common",
         "linkopts_per_mode",
         "linkopts_common",
+        "codegen_opts_common", # TODO: do we need per_mode?
         "global_versions_per_mode",
         "global_versions_common",
         "debug_repo_root_override",
