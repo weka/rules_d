@@ -27,6 +27,11 @@ D_TOOLCHAIN = "//d:toolchain_type"
 
 def _d_toolchain_impl(ctx):
     config = ctx.attr.config[DToolchainConfigInfo] if ctx.attr.config else None
+    codegen_opts_per_mode = {
+        "fastbuild": ctx.attr.codegen_fastbuild_flags,
+        "dbg": ctx.attr.codegen_dbg_flags,
+        "opt": ctx.attr.codegen_opt_flags,
+    }
     if config == None:
         # TODO: deprecate this
         toolchain_info = platform_common.ToolchainInfo(
@@ -42,10 +47,11 @@ def _d_toolchain_impl(ctx):
             druntime_src = ctx.attr.druntime_src,
             version_flag = ctx.attr.version_flag,
             common_flags = ctx.attr.common_flags,
-            codegen_flags = ctx.attr.codegen_flags,
             fastbuild_flags = ctx.attr.fastbuild_flags,
             dbg_flags = ctx.attr.dbg_flags,
             opt_flags = ctx.attr.opt_flags,
+            codegen_common_flags = ctx.attr.codegen_common_flags,
+            codegen_per_mode_flags = codegen_opts_per_mode,
             hdrgen_flags = ctx.attr.hdrgen_flags,
             output_bc_flags = ctx.attr.output_bc_flags,
             global_versions_common = [],
@@ -70,10 +76,11 @@ def _d_toolchain_impl(ctx):
             druntime_src = config.druntime_src or ctx.attr.druntime_src,
             version_flag = config.version_flag or ctx.attr.version_flag,
             common_flags = config.copts_common or ctx.attr.common_flags,
-            codegen_flags = config.codegen_opts_common or ctx.attr.codegen_flags,
             fastbuild_flags = config.copts_per_mode["fastbuild"] or ctx.attr.fastbuild_flags,
             dbg_flags = config.copts_per_mode["dbg"] or ctx.attr.dbg_flags,
             opt_flags = config.copts_per_mode["opt"] or ctx.attr.opt_flags,
+            codegen_common_flags = config.codegen_opts_common or ctx.attr.codegen_common_flags,
+            codegen_per_mode_flags = config.codegen_opts_per_mode or codegen_opts_per_mode,
             hdrgen_flags = config.hdrgen_flags,
             output_bc_flags = config.output_bc_flags,
             global_versions_common = config.global_versions_common,
@@ -108,10 +115,13 @@ d_toolchain = rule(
         "druntime_src": attr.label(),
         "version_flag": attr.string(),
         "common_flags": attr.string_list(),
-        "codegen_flags": attr.string_list(default = []),
         "fastbuild_flags": attr.string_list(),
         "dbg_flags": attr.string_list(),
         "opt_flags": attr.string_list(),
+        "codegen_common_flags": attr.string_list(default = []),
+        "codegen_fastbuild_flags": attr.string_list(),
+        "codegen_dbg_flags": attr.string_list(),
+        "codegen_opt_flags": attr.string_list(),
         "hdrgen_flags": attr.string_list(),
         "output_bc_flags": attr.string_list(),
         "debug_repo_root_override": attr.string(),

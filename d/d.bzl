@@ -421,6 +421,7 @@ def _d_library_impl_common(ctx, extra_flags = []):
 
     if d_lib_bc:
         # need to compile .bc -> .o in an extra step
+        codegen_flags = toolchain.codegen_common_flags + toolchain.codegen_per_mode_flags[ctx.var["COMPILATION_MODE"]]
         # this is a hack, just hoping there is some clang is not good
         # TODO: enforce this is only used with toolchain.c_compiler
         clang = toolchain.c_compiler.files[0] if toolchain.c_compiler else "clang"
@@ -429,7 +430,7 @@ def _d_library_impl_common(ctx, extra_flags = []):
             tools = _with_runfiles(toolchain.c_compiler) if toolchain.c_compiler else [],
             outputs = [d_lib],
             executable = clang,
-            arguments = toolchain.codegen_flags + ["-c", "-o", d_lib.path, d_lib_bc.path],
+            arguments = codegen_flags + ["-c", "-o", d_lib.path, d_lib_bc.path],
             use_default_shell_env = True,
             progress_message = "Compiling bitcode for D library " + ctx.label.name,
         )
@@ -519,6 +520,7 @@ def _d_binary_impl_common(ctx, extra_flags = []):
 
         if d_obj_bc:
             # need to compile .bc -> .o in an extra step
+            codegen_flags = toolchain.codegen_common_flags + toolchain.codegen_per_mode_flags[ctx.var["COMPILATION_MODE"]]
             # this is a hack, just hoping there is some clang is not good
             # TODO: enforce this is only used with toolchain.c_compiler
             clang = toolchain.c_compiler.files[0] if toolchain.c_compiler else "clang"
@@ -527,7 +529,7 @@ def _d_binary_impl_common(ctx, extra_flags = []):
                 tools = _with_runfiles(toolchain.c_compiler) if toolchain.c_compiler else [],
                 outputs = [d_obj],
                 executable = clang,
-                arguments = toolchain.codegen_flags + ["-c", "-o", d_obj.path, d_obj_bc.path],
+                arguments = codegen_flags + ["-c", "-o", d_obj.path, d_obj_bc.path],
                 use_default_shell_env = True,
                 progress_message = "Compiling bitcode for D binary " + ctx.label.name,
             )
