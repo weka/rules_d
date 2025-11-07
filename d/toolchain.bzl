@@ -38,6 +38,7 @@ def _d_toolchain_impl(ctx):
             name = ctx.label.name,
             d_compiler = ctx.attr.d_compiler,
             c_compiler = ctx.attr.c_compiler,
+            llc_compiler = ctx.attr.llc_compiler,
             lib_flags = ctx.attr.lib_flags,
             link_flags = ctx.attr.link_flags,
             import_flags = ctx.attr.import_flags,
@@ -67,6 +68,7 @@ def _d_toolchain_impl(ctx):
             name = ctx.attr.name,
             d_compiler = config.d_compiler or ctx.attr.d_compiler,
             c_compiler = config.c_compiler or ctx.attr.c_compiler,
+            llc_compiler = config.llc_compiler or ctx.attr.llc_compiler,
             lib_flags = config.lib_flags or ctx.attr.lib_flags,
             link_flags = (config.linkopts_common + config.linkopts_per_mode[ctx.var["COMPILATION_MODE"]]) or ctx.attr.link_flags,
             import_flags = config.import_flags or ctx.attr.import_flags,
@@ -98,6 +100,11 @@ d_toolchain = rule(
             cfg = "exec",
         ),
         "c_compiler": attr.label(
+            executable = True,
+            allow_files = True,
+            cfg = "exec",
+        ),
+        "llc_compiler": attr.label(
             executable = True,
             allow_files = True,
             cfg = "exec",

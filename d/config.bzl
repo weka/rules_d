@@ -8,6 +8,7 @@ DToolchainConfigInfo = provider(
         # binaries
         "d_compiler",
         "c_compiler",
+        "llc_compiler",
         # libraries
         "libphobos",
         "libphobos_src",

@@ -422,15 +422,18 @@ def _d_library_impl_common(ctx, extra_flags = []):
     if d_lib_bc:
         # need to compile .bc -> .o in an extra step
         codegen_flags = toolchain.codegen_common_flags + toolchain.codegen_per_mode_flags[ctx.var["COMPILATION_MODE"]]
-        # this is a hack, just hoping there is some clang is not good
-        # TODO: enforce this is only used with toolchain.c_compiler
-        clang = toolchain.c_compiler.files[0] if toolchain.c_compiler else "clang"
+        # this is a hack, just hoping there is some llc is not good
+        # TODO: enforce this is only used with toolchain.llc_compiler
+        # This also _could_ be clang, but aligning LDC backend options with
+        # clang ones is non-trivial, whereas llc has exactly the same options
+        # as ldc does.
+        llc = toolchain.llc_compiler.files.to_list()[0] if toolchain.llc_compiler else "llc"
         ctx.actions.run(
             inputs = [d_lib_bc],
-            tools = _with_runfiles(toolchain.c_compiler) if toolchain.c_compiler else [],
+            tools = _with_runfiles(toolchain.llc_compiler) if toolchain.llc_compiler else [],
             outputs = [d_lib],
-            executable = clang,
-            arguments = codegen_flags + ["-c", "-o", d_lib.path, d_lib_bc.path],
+            executable = llc,
+            arguments = codegen_flags + ["--filetype=obj", "-o", d_lib.path, d_lib_bc.path],
             use_default_shell_env = True,
             progress_message = "Compiling bitcode for D library " + ctx.label.name,
         )
@@ -483,7 +486,7 @@ def _d_binary_impl_common(ctx, extra_flags = []):
             if not toolchain.output_bc_flags:
                 fail("'compile_via_bc' requires a toolchain with 'output_bc_flags' set")
             d_obj_bc = ctx.actions.declare_file(ctx.label.name + ".bc")
-        
+
         d_obj = ctx.actions.declare_file(ctx.label.name + (".obj" if _is_windows(ctx) else ".o"))
         # Build compile command
         compile_args = _build_compile_arglist(
@@ -519,17 +522,21 @@ def _d_binary_impl_common(ctx, extra_flags = []):
         )
 
         if d_obj_bc:
+            # TODO: this code is almost exactly the same as in d_library
             # need to compile .bc -> .o in an extra step
             codegen_flags = toolchain.codegen_common_flags + toolchain.codegen_per_mode_flags[ctx.var["COMPILATION_MODE"]]
-            # this is a hack, just hoping there is some clang is not good
-            # TODO: enforce this is only used with toolchain.c_compiler
-            clang = toolchain.c_compiler.files[0] if toolchain.c_compiler else "clang"
+            # this is a hack, just hoping there is some llc is not good
+            # TODO: enforce this is only used with toolchain.llc_compiler
+            # This also _could_ be clang, but aligning LDC backend options with
+            # clang ones is non-trivial, whereas llc has exactly the same options
+            # as ldc does.
+            llc = toolchain.llc_compiler.files.to_list()[0] if toolchain.llc_compiler else "llc"
             ctx.actions.run(
                 inputs = [d_obj_bc],
-                tools = _with_runfiles(toolchain.c_compiler) if toolchain.c_compiler else [],
+                tools = _with_runfiles(toolchain.llc_compiler) if toolchain.llc_compiler else [],
                 outputs = [d_obj],
-                executable = clang,
-                arguments = codegen_flags + ["-c", "-o", d_obj.path, d_obj_bc.path],
+                executable = llc,
+                arguments = codegen_flags + ["--filetype=obj", "-o", d_obj.path, d_obj_bc.path],
                 use_default_shell_env = True,
                 progress_message = "Compiling bitcode for D binary " + ctx.label.name,
             )
