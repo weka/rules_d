@@ -195,6 +195,8 @@ def _setup_deps(ctx, deps, impl_deps, name):
         libs: List of Files containing the target's direct library dependencies.
         transitive_libs: List of Files containing all of the target's
             transitive libraries.
+        transitive_bc_libs: List of transitive deps as bc files (where they exist)
+        transitive_non_bc_libs: List of transitive deps that don't exists as bc
         d_srcs: List of Files representing D source files of dependencies that
             will be used as inputs for this target.
         versions: List of D versions to be used for compiling the target.
@@ -211,7 +213,11 @@ def _setup_deps(ctx, deps, impl_deps, name):
 
     gen_dir = ctx.genfiles_dir.path
     libs = []
+    libs_bc = []
+    libs_non_bc = []
     transitive_libs = []
+    transitive_libs_bc = []
+    transitive_libs_non_bc = []
     d_srcs = []
     data = []
     transitive_d_srcs = []
@@ -230,7 +236,14 @@ def _setup_deps(ctx, deps, impl_deps, name):
             ddep = dep[DInfo]
             if ddep.d_lib:
                 libs.append(ddep.d_lib)
+                if ddep.d_lib_bc:
+                    libs_bc.append(ddep.d_lib_bc)
+                else:
+                    libs_non_bc.append(ddep.d_lib)
             transitive_libs.append(ddep.transitive_libs)
+            transitive_libs_bc.append(ddep.transitive_libs_bc)
+            transitive_libs_non_bc.append(ddep.transitive_libs_non_bc)
+
             d_srcs += ddep.d_exports
             transitive_d_srcs.append(ddep.transitive_d_srcs)
             data += ddep.data
@@ -252,6 +265,8 @@ def _setup_deps(ctx, deps, impl_deps, name):
             data += ddep.data
             transitive_data.append(ddep.transitive_data)
             transitive_libs.append(ddep.transitive_libs)
+            transitive_libs_bc.append(ddep.transitive_libs_bc)
+            transitive_libs_non_bc.append(ddep.transitive_libs_non_bc)
             link_flags += ["-L%s" % linkopt for linkopt in ddep.linkopts]
             imports += ddep.imports
             if ddep.is_generated:
@@ -264,7 +279,9 @@ def _setup_deps(ctx, deps, impl_deps, name):
             # The dependency is a cc_library
             native_libs = a_filetype(ctx, _get_libs_for_static_executable(dep))
             libs.extend(native_libs)
+            libs_non_bc.extend(native_libs)
             transitive_libs.append(depset(native_libs))
+            transitive_libs_non_bc.append(depset(native_libs))
 
         else:
             fail("D targets can only depend on d_library, d_source_library, or " +
@@ -275,18 +292,30 @@ def _setup_deps(ctx, deps, impl_deps, name):
         if DInfo in dep and hasattr(dep[DInfo], "d_lib"):
             ddep = dep[DInfo]
             libs.append(ddep.d_lib)
+            if ddep.d_lib_bc:
+                libs_bc.append(ddep.d_lib_bc)
+            else:
+                libs_non_bc.append(ddep.d_lib)
             transitive_libs.append(ddep.transitive_libs)
+            transitive_libs_bc.append(ddep.transitive_libs_bc)
+            transitive_libs_non_bc.append(ddep.transitive_libs_non_bc)
             impl_srcs.extend(ddep.d_exports)
         elif CcInfo in dep:
             native_libs = a_filetype(ctx, _get_libs_for_static_executable(dep))
             libs.extend(native_libs)
+            libs_non_bc.extend(native_libs)
             transitive_libs.append(depset(native_libs))
+            transitive_libs_non_bc.append(depset(native_libs))
         else:
             fail("Implementation dependencies can only depend on d_library or cc_library targets.", dep)
 
     return struct(
         libs = depset(libs),
+        libs_bc = depset(libs_bc),
+        libs_non_bc = depset(libs_non_bc),
         transitive_libs = depset(transitive = transitive_libs),
+        transitive_libs_bc = depset(transitive = transitive_libs_bc),
+        transitive_libs_non_bc = depset(transitive = transitive_libs_non_bc),
         transitive_d_srcs = depset(d_srcs, transitive = transitive_d_srcs),
         data = depset(data).to_list(),
         transitive_data = depset(transitive = transitive_data),
@@ -352,6 +381,8 @@ def _d_library_impl_common(ctx, extra_flags = []):
                 data = ctx.files.data,
                 transitive_data = depset(depinfo.data, transitive = [depinfo.transitive_data]),
                 transitive_libs = depset(transitive = [depinfo.libs, depinfo.transitive_libs]),
+                transitive_libs_bc = depset(transitive = [depinfo.libs_bc, depinfo.transitive_libs_bc]),
+                transitive_libs_non_bc = depset(transitive = [depinfo.libs_non_bc, depinfo.transitive_libs_non_bc]),
                 link_flags = depinfo.link_flags,
                 linkopts = ctx.attr.linkopts,
                 versions = depinfo.versions,
@@ -367,7 +398,7 @@ def _d_library_impl_common(ctx, extra_flags = []):
     d_lib = ctx.actions.declare_file(ctx.label.name + ".o")
     d_lib_bc = None
     if ctx.attr.compile_via_bc:
-        d_lib_bc = ctx.actions.declare_file(ctx.label.name + ".bc")
+        d_lib_bc = ctx.actions.declare_file(ctx.label.name + ".bc.o")
 
     # Build compile command.
     compile_args = _build_compile_arglist(
@@ -420,7 +451,7 @@ def _d_library_impl_common(ctx, extra_flags = []):
     )
 
     if d_lib_bc:
-        # need to compile .bc -> .o in an extra step
+        # need to compile .bc.o -> .o in an extra step
         codegen_flags = toolchain.codegen_common_flags + toolchain.codegen_per_mode_flags[ctx.var["COMPILATION_MODE"]]
         # this is a hack, just hoping there is some llc is not good
         # TODO: enforce this is only used with toolchain.llc_compiler
@@ -448,12 +479,15 @@ def _d_library_impl_common(ctx, extra_flags = []):
             data = ctx.files.data,
             transitive_data = depset(depinfo.data, transitive = [depinfo.transitive_data]),
             transitive_libs = depset(transitive = [depinfo.libs, depinfo.transitive_libs]),
+            transitive_libs_bc = depset(transitive = [depinfo.libs_bc, depinfo.transitive_libs_bc]),
+            transitive_libs_non_bc = depset(transitive = [depinfo.libs_non_bc, depinfo.transitive_libs_non_bc]),
             link_flags = depinfo.link_flags,
             linkopts = ctx.attr.linkopts,
             versions = depinfo.versions,
             imports = depinfo.imports,
             string_imports = depinfo.string_imports,
             d_lib = d_lib,
+            d_lib_bc = d_lib_bc,
             is_generated = ctx.attr.is_generated,
             generated_srcs = depinfo.generated_srcs,
         ),
@@ -520,7 +554,7 @@ def _d_binary_impl_common(ctx, extra_flags = []):
 
         if d_obj_bc:
             # TODO: this code is almost exactly the same as in d_library
-            # need to compile .bc -> .o in an extra step
+            # need to compile .bc.o -> .o in an extra step
             codegen_flags = toolchain.codegen_common_flags + toolchain.codegen_per_mode_flags[ctx.var["COMPILATION_MODE"]]
             # this is a hack, just hoping there is some llc is not good
             # TODO: enforce this is only used with toolchain.llc_compiler
@@ -624,6 +658,8 @@ def _d_source_library_impl(ctx):
     transitive_data = []
     transitive_libs = []
     transitive_transitive_libs = []
+    transitive_transitive_libs_bc = []
+    transitive_transitive_libs_non_bc = []
     transitive_imports = depset()
     transitive_string_imports = depset()
     transitive_linkopts = depset()
@@ -642,6 +678,8 @@ def _d_source_library_impl(ctx):
             transitive_linkopts = depset(ddep.linkopts, transitive = [transitive_linkopts])
             transitive_versions = depset(transitive = [ddep.versions, transitive_versions])
             transitive_transitive_libs.append(ddep.transitive_libs)
+            transitive_transitive_libs_bc.append(ddep.transitive_libs_bc)
+            transitive_transitive_libs_non_bc.append(ddep.transitive_libs_non_bc)
             generated_srcs = generated_srcs | ddep.generated_srcs
 
         elif CcInfo in dep:
@@ -662,6 +700,8 @@ def _d_source_library_impl(ctx):
             transitive_d_srcs = depset(transitive = transitive_d_srcs, order = "postorder"),
             transitive_data = depset(transitive = transitive_data, order = "postorder"),
             transitive_libs = depset(transitive_libs, transitive = transitive_transitive_libs),
+            transitive_libs_bc = depset(transitive_libs, transitive = transitive_transitive_libs_bc),
+            transitive_libs_non_bc = depset(transitive_libs, transitive = transitive_transitive_libs_non_bc),
             imports = [_build_import(ctx.label, im, gen_dir) for im in ctx.attr.imports] + transitive_imports.to_list(),
             string_imports = [_build_import(ctx.label, im, gen_dir) for im in ctx.attr.string_imports] + transitive_string_imports.to_list(),
             linkopts = ctx.attr.linkopts + transitive_linkopts.to_list(),
