@@ -465,9 +465,6 @@ def _d_binary_impl_common(ctx, extra_flags = []):
     d_bin = ctx.actions.declare_file(ctx.label.name + ".exe" if _is_windows(ctx) else ctx.label.name)
     d_compiler = toolchain.d_compiler.files.to_list()[0]
 
-    if ctx.attr.compile_via_bc and not ctx.files.srcs:
-        fail("'compile_via_bc' only makes sense if you have sources to compile")
-
     # Dependencies
     deps = ctx.attr.deps + ([toolchain.libphobos] if toolchain.libphobos != None else []) + ([toolchain.druntime] if toolchain.druntime != None else [])
     depinfo = _setup_deps(ctx, deps, [], ctx.label.name)
