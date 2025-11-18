@@ -157,7 +157,11 @@ def _link_order_dict(objs, link_order):
 
 def _build_link_arglist(ctx, objs, out, depinfo, c_compiler, link_flags, link_order):
     """Returns a list of strings constituting the D link command arguments."""
-    all_objs = objs + depset(transitive = [depinfo.libs, depinfo.transitive_libs]).to_list()
+    if not ctx.attr.use_lto:
+        transitive_libs = [depinfo.libs, depinfo.transitive_libs]
+    else:
+        transitive_libs = [depinfo.libs_bc, depinfo.libs_non_bc, depinfo.transitive_libs_bc, depinfo.transitive_libs_non_bc]
+    all_objs = objs + depset(transitive = transitive_libs).to_list()
     sorted_objs = _sort_objects(all_objs, _link_order_dict(all_objs, link_order))
     return (
         _compilation_mode_flags(ctx) +
@@ -510,13 +514,12 @@ def _d_binary_impl_common(ctx, extra_flags = []):
         toolchain.druntime_src.files if toolchain.druntime_src != None else depset(),
     ]
 
+    d_obj_bc = None
     if ctx.files.srcs:
-        d_obj_bc = None
-
-        if ctx.attr.compile_via_bc:
+        if ctx.attr.compile_via_bc or ctx.attr.use_lto:
             if not toolchain.output_bc_flags:
-                fail("'compile_via_bc' requires a toolchain with 'output_bc_flags' set")
-            d_obj_bc = ctx.actions.declare_file(ctx.label.name + ".bc")
+                fail("'compile_via_bc' and 'use_lto' require a toolchain with 'output_bc_flags' set")
+            d_obj_bc = ctx.actions.declare_file(ctx.label.name + ".bc.o")
 
         d_obj = ctx.actions.declare_file(ctx.label.name + (".obj" if _is_windows(ctx) else ".o"))
         # Build compile command
@@ -572,10 +575,11 @@ def _d_binary_impl_common(ctx, extra_flags = []):
                 progress_message = "Compiling bitcode for D binary " + ctx.label.name,
             )
 
+    obj = d_obj_bc if ctx.attr.use_lto else d_obj
     # Build link command
     link_args = _build_link_arglist(
         ctx = ctx,
-        objs = [d_obj] if d_obj else [],
+        objs = [obj] if obj else [],
         depinfo = depinfo,
         out = d_bin,
         c_compiler = toolchain.c_compiler,
@@ -583,9 +587,13 @@ def _d_binary_impl_common(ctx, extra_flags = []):
         link_order = ctx.attr.link_order,
     )
 
+    if ctx.attr.use_lto:
+        libs = [depinfo.libs_bc, depinfo.libs_non_bc, depinfo.transitive_libs_bc, depinfo.transitive_libs_non_bc]
+    else:
+        libs = [depinfo.libs, depinfo.transitive_libs]
     link_inputs = depset(
-        ([d_obj] if d_obj else []) + ([ctx.files.dynamic_symbols[0]] if ctx.files.dynamic_symbols else []),
-        transitive = [depinfo.libs, depinfo.transitive_libs] + toolchain_files,
+        ([obj] if obj else []) + ([ctx.files.dynamic_symbols[0]] if ctx.files.dynamic_symbols else []),
+        transitive = libs + toolchain_files,
     )
 
     ctx.actions.run(
@@ -596,7 +604,7 @@ def _d_binary_impl_common(ctx, extra_flags = []):
         executable = d_compiler,
         arguments = link_args,
         use_default_shell_env = True,
-        progress_message = "Linking D binary " + ctx.label.name,
+        progress_message = "Linking " + ("(with LTO) " if ctx.attr.use_lto else "") + "D binary " + ctx.label.name,
     )
 
     return [
@@ -838,6 +846,7 @@ _d_library_attrs = {
 _d_binary_attrs = {
     "dynamic_symbols" : attr.label(allow_files = True),
     "link_order": attr.label_keyed_string_dict(),
+    "use_lto": attr.bool(default = False),
 }
 
 # _d_compile_attrs = {
