@@ -1,6 +1,7 @@
 package(default_visibility = ["//visibility:public"])
 
 load("//d:toolchain.bzl", "D_TOOLCHAIN", "d_toolchain")
+load("//d:config.bzl", "d_toolchain_config")
 
 toolchain_type(name = "toolchain_type")
 
@@ -9,13 +10,18 @@ filegroup(
     srcs = glob(["**"]),
 )
 
-[d_toolchain(
-    name = "dmd_" + os + "_x86_64",
+[d_toolchain_config(
+    name = "dmd_" + os + "_x86_64_config",
     d_compiler = "@dmd_" + os + "_x86_64//:dmd",
     druntime_src = "@dmd_" + os + "_x86_64//:druntime_src",
     libphobos = "@dmd_" + os + "_x86_64//:libphobos2",
     libphobos_src = "@dmd_" + os + "_x86_64//:phobos_src",
     version_flag = "-version",
+) for os in ["linux", "darwin"]] # , "windows"]]
+
+[d_toolchain(
+    name = "dmd_" + os + "_x86_64",
+    config = ":dmd_" + os + "_x86_64_config",
 ) for os in ["linux", "darwin"]] # , "windows"]]
 
 toolchain(
@@ -63,18 +69,18 @@ toolchain(
 #     toolchain_type = D_TOOLCHAIN,
 # )
 
-d_toolchain(
-    name = "ldc_linux_x86_64",
+d_toolchain_config(
+    name = "ldc_linux_x86_64_config",
     d_compiler = "@ldc_linux_x86_64//:ldc2",
     druntime = "@ldc_linux_x86_64//:druntime",
     druntime_src = "@ldc_linux_x86_64//:druntime_src",
     libphobos = "@ldc_linux_x86_64//:libphobos2",
     libphobos_src = "@ldc_linux_x86_64//:phobos_src",
-    version_flag = "--d-version",
-    lib_flags = [
-        "-lib", "-oq",
-    ],
-    output_bc_flags = ["--output-bc"],
+)
+
+d_toolchain(
+    name = "ldc_linux_x86_64",
+    config = ":ldc_linux_x86_64_config",
 )
 
 toolchain(
@@ -92,8 +98,8 @@ toolchain(
     toolchain_type = D_TOOLCHAIN,
 )
 
-d_toolchain(
-    name = "weka_ldc_linux_x86_64",
+d_toolchain_config(
+    name = "weka_ldc_linux_x86_64_config",
     d_compiler = "@weka_ldc_linux_x86_64//:ldc2",
     druntime = "@weka_ldc_linux_x86_64//:druntime",
     druntime_src = "@weka_ldc_linux_x86_64//:druntime_src",
@@ -108,6 +114,11 @@ d_toolchain(
     ],
     debug_repo_root_override = "/source",
     output_bc_flags = ["--output-bc"],
+)
+
+d_toolchain(
+    name = "weka_ldc_linux_x86_64",
+    config = ":weka_ldc_linux_x86_64_config",
 )
 
 toolchain(

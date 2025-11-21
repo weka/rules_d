@@ -23,3 +23,12 @@ platform(
         "//d/constraints/compiler:weka-ldc",
     ],
 )
+
+platform(
+    name = "weka-ldc-linux-x86_64",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+        "//d/constraints/compiler:weka-ldc",
+    ],
+)
