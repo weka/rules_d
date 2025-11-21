@@ -30,6 +30,9 @@ DToolchainConfigInfo = provider(
         "global_versions_per_mode",
         "global_versions_common",
         "debug_repo_root_override",
+        # default settings for various compilation options
+        "compile_via_bc",  # whether to compile with an intermediate bitcode file by default (only for ldc)
+        "fat_lto",  # whether to use fat LTO by default (only for ldc)
     ],
 )
 
@@ -72,6 +75,8 @@ def _d_toolchain_config_impl(ctx):
             "opt": ctx.attr.global_versions_opt,
         },
         debug_repo_root_override = ctx.attr.debug_repo_root_override,
+        compile_via_bc = ctx.attr.compile_via_bc,
+        fat_lto = ctx.attr.fat_lto,
     )]
 
 d_toolchain_config = rule(
@@ -128,5 +133,7 @@ d_toolchain_config = rule(
         "hdrgen_flags": attr.string_list(),
         "output_bc_flags": attr.string_list(),
         "debug_repo_root_override": attr.string(),
+        "compile_via_bc": attr.bool(default = False),
+        "fat_lto": attr.bool(default = False),
     },
 )
