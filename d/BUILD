@@ -114,6 +114,14 @@ d_toolchain_config(
     ],
     debug_repo_root_override = "/source",
     output_bc_flags = ["--output-bc"],
+    link_flags = [
+        "--linker=lld",
+    ],
+    codegen_common_flags = [
+        "--relocation-model=pic",
+    ],
+    compile_via_bc = True,
+    fat_lto = True,
 )
 
 d_toolchain(

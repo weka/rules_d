@@ -29,6 +29,7 @@ d_test(
     args = [
         "--DRT-oncycle=ignore",
     ],
+    fat_lto = "no",  # link_order is not guaranteed to work with fat LTO
     deps = [
         ":lib_a",
         ":lib_b",
@@ -44,6 +45,7 @@ d_test(
     args = [
         "--DRT-oncycle=ignore",
     ],
+    fat_lto = "no",  # link_order is not guaranteed to work with fat LTO
     deps = [
         ":lib_b",
         ":lib_a",
