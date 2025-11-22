@@ -16,6 +16,16 @@
 
 load("//d:toolchain.bzl", "D_TOOLCHAIN")
 
+def _parse_bool_string(s, default):
+    if s == "yes":
+        return True
+    elif s == "no":
+        return False
+    elif s == "auto":
+        return default
+    else:
+        fail("Invalid boolean string: %s. Must be 'yes', 'no', or 'auto'." % s)
+
 def _is_windows(ctx):
     return ctx.configuration.host_path_separator == ";"
 
@@ -119,8 +129,9 @@ def _build_compile_arglist(ctx, out, depinfo, extra_flags = []):
     versions = depset(
         toolchain.global_versions_common + toolchain.global_versions_per_mode[ctx.var["COMPILATION_MODE"]],
         transitive = [depinfo.versions])
-    
-    compile_via_bc = ctx.attr.compile_via_bc if ctx.attr.compile_via_bc != None else toolchain.compile_via_bc
+
+    compile_via_bc = _parse_bool_string(ctx.attr.compile_via_bc, toolchain.compile_via_bc)
+
     return (
         _compilation_mode_flags(ctx) +
         extra_flags + [
@@ -364,7 +375,7 @@ def _d_library_impl_common(ctx, extra_flags = []):
     toolchain = ctx.toolchains[D_TOOLCHAIN]
     d_compiler = toolchain.d_compiler.files.to_list()[0]
 
-    compile_via_bc = ctx.attr.compile_via_bc if ctx.attr.compile_via_bc != None else toolchain.compile_via_bc
+    compile_via_bc = _parse_bool_string(ctx.attr.compile_via_bc, toolchain.compile_via_bc)
     if compile_via_bc and not toolchain.output_bc_flags:
         fail("'compile_via_bc' requires a toolchain with 'output_bc_flags' set")
 
@@ -518,8 +529,8 @@ def _d_binary_impl_common(ctx, extra_flags = []):
     ]
 
     d_obj_bc = None
-    compile_via_bc = ctx.attr.compile_via_bc if ctx.attr.compile_via_bc != None else toolchain.compile_via_bc
-    fat_lto = ctx.attr.fat_lto if ctx.attr.fat_lto != None else toolchain.fat_lto
+    compile_via_bc = _parse_bool_string(ctx.attr.compile_via_bc, toolchain.compile_via_bc)
+    fat_lto = _parse_bool_string(ctx.attr.fat_lto, toolchain.fat_lto)
     if ctx.files.srcs:
         if compile_via_bc or fat_lto:
             if not toolchain.output_bc_flags:
@@ -839,10 +850,11 @@ _d_common_attrs = {
     "include_workspace_root": attr.bool(default = True),
     "is_generated": attr.bool(default = False),
     "generated_srcs": attr.label_keyed_string_dict(allow_files = True),
-    "compile_via_bc": attr.bool(doc = """
-    Whether to compile with an intermediate bitcode file. If set, this overrides the default setting in the toolchain.
+    "compile_via_bc": attr.string(doc = """
+    Whether to compile with an intermediate bitcode file. If "yes" or "no", this overrides the default setting in the toolchain.
+    If "auto", the default setting in the toolchain is used.
     This is only supported for LDC.
-    """),
+    """, default = "auto"),
     "deps": attr.label_list(),
 }
 
@@ -855,10 +867,11 @@ _d_library_attrs = {
 _d_binary_attrs = {
     "dynamic_symbols" : attr.label(allow_files = True),
     "link_order": attr.label_keyed_string_dict(),
-    "fat_lto": attr.bool(doc = """
-    Whether to use fat LTO. If set, this overrides the default setting in the toolchain.
+    "fat_lto": attr.string(doc = """
+    Whether to force fat LTO. If "yes" or "no", this overrides the default setting in the toolchain.
+    If "auto", the default setting in the toolchain is used.
     This is only supported for LDC.
-    """),
+    """, default = "auto"),
 }
 
 # _d_compile_attrs = {

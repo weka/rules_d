@@ -4,6 +4,6 @@ load("@rules_d//d:d.bzl", "d_library")
 
 d_library(
     name = "simple_d_library",
-    compile_via_bc = True,
+    compile_via_bc = "yes",
     srcs = ["simple_library.d"],
 )
