@@ -53,6 +53,8 @@ def _d_toolchain_impl(ctx):
         global_versions_common = config.global_versions_common,
         global_versions_per_mode = config.global_versions_per_mode,
         debug_repo_root_override = config.debug_repo_root_override,
+        compile_via_bc = config.compile_via_bc,
+        fat_lto = config.fat_lto,
     )
     return [toolchain_info]
 
