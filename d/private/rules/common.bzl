@@ -186,27 +186,89 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
         transitive = [d.string_imports for d in d_deps],
     )
     versions = depset(ctx.attr.versions, transitive = [d.versions for d in d_deps])
-    args = ctx.actions.args()
-    args.add_all(COMPILATION_MODE_FLAGS[ctx.var["COMPILATION_MODE"]])
-    args.add_all(ctx.files.srcs)
-    args.add_all(imports.to_list(), format_each = "-I=%s")
-    args.add_all(string_imports.to_list(), format_each = "-J=%s")
-    args.add_all(toolchain.compiler_flags)
-    args.add_all(compiler_flags.to_list())
-    args.add_all(versions.to_list(), format_each = "-version=%s")
-    args.add_all(toolchain.linker_flags)
-    args.add_all(linker_flags.to_list(), format_each = "-L=%s")
-    output = None
+
+    # For binaries/tests: split compilation and linking
     if target_type in [TARGET_TYPE.BINARY, TARGET_TYPE.TEST]:
-        # Collect all D libraries into a single depset to avoid duplicates
+        # Step 1: Compile binary sources to .o file (if there are sources)
+        binary_object = None
+        if ctx.files.srcs:
+            compile_args = ctx.actions.args()
+            compile_args.add_all(COMPILATION_MODE_FLAGS[ctx.var["COMPILATION_MODE"]])
+            compile_args.add("-c")  # Compile only, no linking
+            compile_args.add_all(ctx.files.srcs)
+            compile_args.add_all(imports.to_list(), format_each = "-I=%s")
+            compile_args.add_all(string_imports.to_list(), format_each = "-J=%s")
+            compile_args.add_all(toolchain.compiler_flags)
+            compile_args.add_all(compiler_flags.to_list())
+            compile_args.add_all(versions.to_list(), format_each = "-version=%s")
+            if target_type == TARGET_TYPE.TEST:
+                compile_args.add_all(["-main", "-unittest"])
+
+            binary_object = ctx.actions.declare_file(_object_file_name(ctx, ctx.label.name))
+            compile_args.add(binary_object, format = "-of=%s")
+
+            compile_inputs = depset(
+                direct = ctx.files.srcs + ctx.files.string_srcs,
+                transitive = [toolchain.d_compiler[DefaultInfo].default_runfiles.files] +
+                             [d.interface_srcs for d in d_deps],
+            )
+
+            ctx.actions.run(
+                inputs = compile_inputs,
+                outputs = [binary_object],
+                executable = toolchain.d_compiler[DefaultInfo].files_to_run,
+                arguments = [compile_args],
+                env = ctx.var,
+                use_default_shell_env = True,
+                mnemonic = "Dcompile",
+                progress_message = "Compiling D %s %s" % (target_type, ctx.label.name),
+            )
+
+        # Step 2: Link all object files into executable
+        link_args = ctx.actions.args()
+        link_args.add_all(COMPILATION_MODE_FLAGS[ctx.var["COMPILATION_MODE"]])
+        link_args.add_all(toolchain.linker_flags)
+        link_args.add_all(linker_flags.to_list(), format_each = "-L=%s")
+
+        # Add binary object file if it exists
+        if binary_object:
+            link_args.add(binary_object)
+
+        # Collect all D libraries
         all_d_libraries = depset(transitive = [dep.libraries for dep in d_deps])
-        args.add_all(all_d_libraries)
-        args.add_all(c_libraries)
-        if target_type == TARGET_TYPE.TEST:
-            args.add_all(["-main", "-unittest"])
+        link_args.add_all(all_d_libraries)
+        link_args.add_all(c_libraries)
+
         output = ctx.actions.declare_file(_binary_name(ctx, ctx.label.name))
-        args.add(output, format = "-of=%s")
+        link_args.add(output, format = "-of=%s")
+
+        link_inputs = depset(
+            direct = [binary_object] if binary_object else [],
+            transitive = [toolchain.d_compiler[DefaultInfo].default_runfiles.files] +
+                         [dep.libraries for dep in d_deps] +
+                         [c_libraries],
+        )
+
+        ctx.actions.run(
+            inputs = link_inputs,
+            outputs = [output],
+            executable = toolchain.d_compiler[DefaultInfo].files_to_run,
+            arguments = [link_args],
+            env = ctx.var,
+            use_default_shell_env = True,
+            mnemonic = "Dlink",
+            progress_message = "Linking D %s %s" % (target_type, ctx.label.name),
+        )
     elif target_type == TARGET_TYPE.LIBRARY:
+        args = ctx.actions.args()
+        args.add_all(COMPILATION_MODE_FLAGS[ctx.var["COMPILATION_MODE"]])
+        args.add_all(ctx.files.srcs)
+        args.add_all(imports.to_list(), format_each = "-I=%s")
+        args.add_all(string_imports.to_list(), format_each = "-J=%s")
+        args.add_all(toolchain.compiler_flags)
+        args.add_all(compiler_flags.to_list())
+        args.add_all(versions.to_list(), format_each = "-version=%s")
+        output = None
         # NOTE: Bitcode compilation (Phase 4) will require single_object mode.
         # When compile_via_bc is enabled, single_object must be "on" or "auto"
         # (resolving to True). Validation will be added in Phase 4.
@@ -221,29 +283,26 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
             args.add("-lib")
             output = ctx.actions.declare_file(_static_library_name(ctx, ctx.label.name))
         args.add(output, format = "-of=%s")
+
+        inputs = depset(
+            direct = ctx.files.srcs + ctx.files.string_srcs,
+            transitive = [toolchain.d_compiler[DefaultInfo].default_runfiles.files] +
+                         [d.interface_srcs for d in d_deps],
+        )
+
+        ctx.actions.run(
+            inputs = inputs,
+            outputs = [output],
+            executable = toolchain.d_compiler[DefaultInfo].files_to_run,
+            arguments = [args],
+            env = ctx.var,
+            use_default_shell_env = False,
+            mnemonic = "Dcompile",
+            progress_message = "Compiling D %s %s" % (target_type, ctx.label.name),
+        )
     else:
         fail("Unsupported target type: %s" % target_type)
 
-    transitive_library_inputs = []
-    if target_type != TARGET_TYPE.LIBRARY:
-        transitive_library_inputs += [d.libraries for d in d_deps] + [c_libraries]
-    inputs = depset(
-        direct = ctx.files.srcs + ctx.files.string_srcs,
-        transitive = [toolchain.d_compiler[DefaultInfo].default_runfiles.files] +
-                     [d.interface_srcs for d in d_deps] +
-                     transitive_library_inputs,
-    )
-
-    ctx.actions.run(
-        inputs = inputs,
-        outputs = [output],
-        executable = toolchain.d_compiler[DefaultInfo].files_to_run,
-        arguments = [args],
-        env = ctx.var,
-        use_default_shell_env = target_type != TARGET_TYPE.LIBRARY,  # True to make the linker work properly
-        mnemonic = "Dcompile",
-        progress_message = "Compiling D %s %s" % (target_type, ctx.label.name),
-    )
     if target_type == TARGET_TYPE.LIBRARY:
         return [
             DefaultInfo(files = depset([output])),
