@@ -44,6 +44,15 @@ library_attrs = dicts.add(
     common_attrs,
     {
         "source_only": attr.bool(doc = "If true, the source files are compiled, but not library is produced."),
+        "single_object": attr.string(
+            default = "auto",
+            values = ["auto", "on", "off"],
+            doc = """Controls library output format:
+            - "auto": Use toolchain default (reads from toolchain config)
+            - "on": Compile to single .o object file
+            - "off": Compile to .a archive library
+        """,
+        ),
     },
 )
 
@@ -90,6 +99,52 @@ def _static_library_name(ctx, name):
         return name + ".lib"
     else:
         fail("Unsupported os %s for static library: %s" % (os, name))
+
+def _object_file_name(ctx, name):
+    """Returns the name of the object file based on the OS.
+
+    Args:
+        ctx: The rule context.
+        name: The base name of the object file.
+    Returns:
+        The name of the object file.
+    """
+    os = _get_os(ctx)
+    if os == "linux" or os == "macos":
+        return "lib" + name + ".o"
+    elif os == "windows":
+        return name + ".obj"
+    else:
+        fail("Unsupported os %s for object file: %s" % (os, name))
+
+def _resolve_tristate(value, default):
+    """Resolves a tri-state string value to a boolean.
+
+    Args:
+        value: The tri-state string value ("auto", "on", "off", "yes", "no")
+        default: The default boolean value to use when value is "auto"
+
+    Returns:
+        Boolean: Resolved value
+    """
+    if value in ["on", "yes"]:
+        return True
+    elif value in ["off", "no"]:
+        return False
+    else:  # "auto"
+        return default
+
+def _get_single_object_mode(ctx):
+    """Determines whether to compile to single object or archive.
+
+    Args:
+        ctx: Rule context
+
+    Returns:
+        Boolean: True for single object mode, False for archive mode
+    """
+    toolchain = ctx.toolchains["//d:toolchain_type"].d_toolchain_info
+    return _resolve_tristate(ctx.attr.single_object, toolchain.single_object)
 
 TARGET_TYPE = struct(
     BINARY = "binary",
@@ -143,16 +198,28 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
     args.add_all(linker_flags.to_list(), format_each = "-L=%s")
     output = None
     if target_type in [TARGET_TYPE.BINARY, TARGET_TYPE.TEST]:
-        for dep in d_deps:
-            args.add_all(dep.libraries)
+        # Collect all D libraries into a single depset to avoid duplicates
+        all_d_libraries = depset(transitive = [dep.libraries for dep in d_deps])
+        args.add_all(all_d_libraries)
         args.add_all(c_libraries)
         if target_type == TARGET_TYPE.TEST:
             args.add_all(["-main", "-unittest"])
         output = ctx.actions.declare_file(_binary_name(ctx, ctx.label.name))
         args.add(output, format = "-of=%s")
     elif target_type == TARGET_TYPE.LIBRARY:
-        args.add("-lib")
-        output = ctx.actions.declare_file(_static_library_name(ctx, ctx.label.name))
+        # NOTE: Bitcode compilation (Phase 4) will require single_object mode.
+        # When compile_via_bc is enabled, single_object must be "on" or "auto"
+        # (resolving to True). Validation will be added in Phase 4.
+        single_object = _get_single_object_mode(ctx)
+
+        if single_object:
+            # Single object mode: compile to .o file
+            args.add("-c")
+            output = ctx.actions.declare_file(_object_file_name(ctx, ctx.label.name))
+        else:
+            # Archive mode: create .a library
+            args.add("-lib")
+            output = ctx.actions.declare_file(_static_library_name(ctx, ctx.label.name))
         args.add(output, format = "-of=%s")
     else:
         fail("Unsupported target type: %s" % target_type)

@@ -6,5 +6,18 @@ build_test(
     name = "smoke_test",
     targets = [
         "//tests/std_lib:fiber_thread_usage",
+        "//tests/single_object_mode:binary_with_single_object",
+        "//tests/single_object_mode:binary_with_archive",
+        "//tests/single_object_mode:binary_with_mixed",
+        "//tests/single_object_mode:binary_transitive",
+    ],
+)
+
+test_suite(
+    name = "single_object_tests",
+    tests = [
+        "//tests/single_object_mode:test_single_object",
+        "//tests/single_object_mode:test_archive",
+        "//tests/single_object_mode:test_mixed",
     ],
 )

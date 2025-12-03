@@ -1,0 +1,145 @@
+load("@rules_d//d:defs.bzl", "d_binary", "d_library", "d_test")
+
+package(default_visibility = ["//visibility:public"])
+
+# Test 1: Library with single_object = "on" (explicit .o output)
+d_library(
+    name = "single_on",
+    srcs = ["lib_a.d"],
+    single_object = "on",
+)
+
+# Test 2: Library with single_object = "off" (explicit .a output)
+d_library(
+    name = "single_off",
+    srcs = ["lib_b.d"],
+    single_object = "off",
+)
+
+# Test 3: Library with single_object = "auto" (uses toolchain default)
+d_library(
+    name = "single_auto",
+    srcs = ["lib_c.d"],
+    single_object = "auto",
+)
+
+# Test 4: Multi-source library with single_object = "on"
+d_library(
+    name = "multi_single_on",
+    srcs = [
+        "multi_a.d",
+        "multi_b.d",
+        "multi_c.d",
+    ],
+    single_object = "on",
+)
+
+# Test 5: Multi-source library with single_object = "off"
+d_library(
+    name = "multi_single_off",
+    srcs = [
+        "multi_d.d",
+        "multi_e.d",
+    ],
+    single_object = "off",
+)
+
+# Test 6: Binary depending on single object library (.o)
+d_binary(
+    name = "binary_with_single_object",
+    srcs = ["main.d"],
+    deps = [":single_on"],
+)
+
+# Test 7: Binary depending on archive library (.a)
+d_binary(
+    name = "binary_with_archive",
+    srcs = ["main2.d"],
+    deps = [":single_off"],
+)
+
+# Test 8: Binary depending on mixed libraries (.o and .a)
+d_library(
+    name = "intermediate",
+    srcs = ["lib_d.d"],
+    deps = [":single_on"],
+    single_object = "auto",
+)
+
+d_binary(
+    name = "binary_with_mixed",
+    srcs = ["main3.d"],
+    deps = [
+        ":single_on",
+        ":single_off",
+        ":intermediate",
+    ],
+)
+
+# Test 9: Transitive dependencies with mixed modes
+d_library(
+    name = "base_single",
+    srcs = ["lib_base.d"],
+    single_object = "on",
+)
+
+d_library(
+    name = "mid_archive",
+    srcs = ["lib_mid.d"],
+    deps = [":base_single"],
+    single_object = "off",
+)
+
+d_binary(
+    name = "binary_transitive",
+    srcs = ["main4.d"],
+    deps = [":mid_archive"],
+)
+
+# Test 10: Binary with multi-source single object library
+d_binary(
+    name = "binary_with_multi_single",
+    srcs = ["main5.d"],
+    deps = [":multi_single_on"],
+)
+
+# Test 11: Binary with multi-source archive library
+d_binary(
+    name = "binary_with_multi_archive",
+    srcs = ["main6.d"],
+    deps = [":multi_single_off"],
+)
+
+# Tests that verify execution
+d_test(
+    name = "test_single_object",
+    srcs = ["test_single.d"],
+    deps = [":single_on"],
+)
+
+d_test(
+    name = "test_archive",
+    srcs = ["test_archive.d"],
+    deps = [":single_off"],
+)
+
+d_test(
+    name = "test_mixed",
+    srcs = ["test_mixed.d"],
+    deps = [
+        ":single_on",
+        ":single_off",
+    ],
+)
+
+d_test(
+    name = "test_multi_single",
+    srcs = ["test_multi_single.d"],
+    deps = [":multi_single_on"],
+)
+
+d_test(
+    name = "test_multi_archive",
+    srcs = ["test_multi_archive.d"],
+    deps = [":multi_single_off"],
+)
