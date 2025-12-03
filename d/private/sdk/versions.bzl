@@ -1182,4 +1182,88 @@ SDK_VERSIONS = {
             "integrity": "sha384-Fmbq2sAUplXQIceDail9Ylxy21QM1rgAm32tBUl/qXPux+p8NeDg5FRfsANywdhK",
         },
     },
+    "ldc-1.30.0-weka15": {
+        "x86_64-unknown-linux-gnu": {
+            "url": "https://github.com/weka/ldc/releases/download/v1.30.0-weka15/ldc2-1.30.0-weka15-linux-x86_64.tar.xz",
+            "integrity": "sha384-Km/LsfS0ldp1XasI/gA8KI2WTWkkDXB9vH45A/SwzrNY8BaGlq9S8tdFBTcH1jJj",
+        },
+        "aarch64-apple-darwin": {
+            "url": "https://github.com/weka/ldc/releases/download/v1.30.0-weka15/ldc2-1.30.0-weka15-osx-arm64.tar.xz",
+            "integrity": "sha384-EXCuxMHT9UG7lRPSZHNZ8c2WSMskswwSKr3RVOAR+dNmVYtv1Dzf0P7gQMeeMnSk",
+        },
+        "x86_64-apple-darwin": {
+            "url": "https://github.com/weka/ldc/releases/download/v1.30.0-weka15/ldc2-1.30.0-weka15-osx-x86_64.tar.xz",
+            "integrity": "sha384-274ZgzwkDvQcKIVJ1VMluFSJqfvFAZ8Cw7747+6m9oVA6DoyiTtC2yHnSrgu6lSu",
+        },
+    },
+    "ldc-1.30.0-weka17": {
+        "x86_64-unknown-linux-gnu": {
+            "url": "https://github.com/weka/ldc/releases/download/v1.30.0-weka17/ldc2-1.30.0-weka17-linux-x86_64.tar.xz",
+            "integrity": "sha384-5HoJnqCPHrIBzf0Vu6+7RHXFwfbbnQpmxtb8GIu5f1+t2fEEapJrbthnfWHKVxrq",
+        },
+        "aarch64-apple-darwin": {
+            "url": "https://github.com/weka/ldc/releases/download/v1.30.0-weka17/ldc2-1.30.0-weka17-osx-arm64.tar.xz",
+            "integrity": "sha384-bp3IKtyYzkmVYEMyVZACO3pDUBOfoUndD7Y7wXX7JxaUhJ+LgxraQgMUClljjo7k",
+        },
+        "x86_64-apple-darwin": {
+            "url": "https://github.com/weka/ldc/releases/download/v1.30.0-weka17/ldc2-1.30.0-weka17-osx-x86_64.tar.xz",
+            "integrity": "sha384-QvLNGfq0hh7ZdLIvsYT3jrOT9fHLzFJ7iTkDD8TjlFOY+Zg4TcTzGbzObZ51TA24",
+        },
+    },
+    "ldc-1.30.0-weka18": {
+        "x86_64-unknown-linux-gnu": {
+            "url": "https://github.com/weka/ldc/releases/download/v1.30.0-weka18/ldc2-1.30.0-weka18-linux-x86_64.tar.xz",
+            "integrity": "sha384-5WZN2mM/NlGctZv4avArZulBzXrQ1vsspkz4WZFXABiCkItkXHxf6kXv511rQrFu",
+        },
+        "aarch64-apple-darwin": {
+            "url": "https://github.com/weka/ldc/releases/download/v1.30.0-weka18/ldc2-1.30.0-weka18-osx-arm64.tar.xz",
+            "integrity": "sha384-Bw9Dt5yHjU+uV3cy6trzLwWz8IFwcZx0uAIdP16ihzTyAt9LwG+CuXtY9m9KgKDM",
+        },
+        "x86_64-apple-darwin": {
+            "url": "https://github.com/weka/ldc/releases/download/v1.30.0-weka18/ldc2-1.30.0-weka18-osx-x86_64.tar.xz",
+            "integrity": "sha384-bjBFglGGj+mFJlnPtHFUvQd5dj7QTbpdQ5qGjLR4tP3OhK6l0/SLjcZ7G/fHiPZv",
+        },
+    },
+    "ldc-1.30.0-weka19": {
+        "x86_64-unknown-linux-gnu": {
+            "url": "https://github.com/weka/ldc/releases/download/v1.30.0-weka19/ldc2-1.30.0-weka19-linux-x86_64.tar.xz",
+            "integrity": "sha384-pP9zpGEMru8csh/fBvrg+gM5txD57RgebTevEU4zF3Tt9a3XwHDOsEZGNT8OaG5E",
+        },
+        "aarch64-apple-darwin": {
+            "url": "https://github.com/weka/ldc/releases/download/v1.30.0-weka19/ldc2-1.30.0-weka19-osx-arm64.tar.xz",
+            "integrity": "sha384-pd6fEfm03ADCBbqheSCLVFEB3bx5/bc1fjpvmsivPn35gPyicBRLjh2SPrx9q6rG",
+        },
+        "x86_64-apple-darwin": {
+            "url": "https://github.com/weka/ldc/releases/download/v1.30.0-weka19/ldc2-1.30.0-weka19-osx-x86_64.tar.xz",
+            "integrity": "sha384-2DEtzv107bnO387veU2VsIWv3JIJ5OprhM6DKcVSdECNwxUraoNfI2fs6wyV58Es",
+        },
+    },
+    "ldc-1.30.0-weka21": {
+        "x86_64-unknown-linux-gnu": {
+            "url": "https://github.com/weka/ldc/releases/download/v1.30.0-weka21/ldc2-1.30.0-weka21-linux-x86_64.tar.xz",
+            "integrity": "sha384-rmEYlaC1An3hjQVK+klKQmquM6HY5PWd8l/OoxbOexoc6CtRvECqEmYbR3R4HhdT",
+        },
+        "aarch64-apple-darwin": {
+            "url": "https://github.com/weka/ldc/releases/download/v1.30.0-weka21/ldc2-1.30.0-weka21-osx-arm64.tar.xz",
+            "integrity": "sha384-6oUk6HMrsT8EEpNU2GUPm0uS/9EKzlEUT4vqdnsAS0isnJkUKQI4+qoDTfl1DHik",
+        },
+        "x86_64-apple-darwin": {
+            "url": "https://github.com/weka/ldc/releases/download/v1.30.0-weka21/ldc2-1.30.0-weka21-osx-x86_64.tar.xz",
+            "integrity": "sha384-YJjAUUWXf3eeNXQdaJ+Jrn33a5A9bJkbFa+lKzc5srCJvVlBrrK165HXBb0YAp+J",
+        },
+    },
+    "ldc-1.38.0-weka1": {
+        "x86_64-unknown-linux-gnu": {
+            "url": "https://github.com/weka/ldc/releases/download/v1.38.0-weka1/ldc2-1.38.0-weka1-linux-x86_64.tar.xz",
+            "integrity": "sha384-J/2m7YE/6bAf2r8yrY5bBDi1DBAswvVnivY7QItkyCMKMasdwOFSMPRDX4QvWl2j",
+        },
+        "aarch64-apple-darwin": {
+            "url": "https://github.com/weka/ldc/releases/download/v1.38.0-weka1/ldc2-1.38.0-weka1-osx-arm64.tar.xz",
+            "integrity": "sha384-DBNw+YZRID2J7RNTUJ/AzdK36zwrF5D1unDO4D9kK8Ecc5I82YVKzvR6GCkJc558",
+        },
+        "x86_64-apple-darwin": {
+            "url": "https://github.com/weka/ldc/releases/download/v1.38.0-weka1/ldc2-1.38.0-weka1-osx-x86_64.tar.xz",
+            "integrity": "sha384-WHde671VHu47h2h/BJ6O5rX7FXrqVw2lXMqoFHhGv9MfTAAXfcRWJNNtsFkPAuoG",
+        },
+    },
 }
