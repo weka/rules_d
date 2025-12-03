@@ -1,3 +1,4 @@
+load("@rules_d//d:config.bzl", "d_toolchain_config")
 load("@rules_d//d:toolchain.bzl", "d_toolchain")
 
 filegroup(
@@ -70,9 +71,13 @@ filegroup(
     data = [":dmd"],
 )
 
-d_toolchain(
-    name = "d_toolchain",
-    compiler_flags = [
+d_toolchain_config(
+    name = "dmd_config",
+    d_compiler = ":dmd",
+    dub_tool = ":dub",
+    rdmd_tool = ":rdmd",
+    # DMD-specific flags
+    copts_common = [
         "-conf=",
         "-I={D_COMPILER_ROOT}/src/druntime/import",
         "-I={D_COMPILER_ROOT}/src/phobos",
@@ -81,9 +86,7 @@ d_toolchain(
         "@platforms//os:macos": [],
         "@platforms//os:windows": [],
     }),
-    d_compiler = ":dmd",
-    dub_tool = ":dub",
-    linker_flags = [
+    linkopts_common = [
         "-conf=",
     ] + select({
         "@platforms//os:linux": [
@@ -93,5 +96,19 @@ d_toolchain(
         "@platforms//os:macos": ["-L-L{D_COMPILER_ROOT}/osx/lib"],
         "@platforms//os:windows": ["-L/LIBPATH:{D_COMPILER_ROOT}/windows/lib64"],
     }),
-    rdmd_tool = ":rdmd",
+    dbg_copts = ["-g", "-debug", "-version=debug_assert"],
+    opt_copts = ["-O", "-release", "-inline"],
+    lib_flags = ["-lib"],
+    import_flags = ["-I"],
+    version_flag = "-version=",
+    # DMD doesn't support bitcode
+    output_bc_flags = [],
+    single_object = True,
+    compile_via_bc = False,
+    fat_lto = False,
+)
+
+d_toolchain(
+    name = "d_toolchain",
+    config = ":dmd_config",
 )
