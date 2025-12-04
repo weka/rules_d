@@ -3,6 +3,7 @@
 load("@bazel_lib//lib:expand_make_vars.bzl", "expand_variables")
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
 load("@bazel_skylib//lib:paths.bzl", "paths")
+load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
 load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
 load("//d/private:providers.bzl", "DInfo")
 
@@ -37,6 +38,10 @@ runnable_attrs = dicts.add(
     {
         "env": attr.string_dict(doc = "Environment variables for the binary at runtime. Subject of location and make variable expansion."),
         "data": attr.label_list(allow_files = True, doc = "List of files to be made available at runtime."),
+        "_cc_toolchain": attr.label(
+            default = "@rules_cc//cc:current_cc_toolchain",
+            doc = "Default CC toolchain, used for linking. Remove after https://github.com/bazelbuild/bazel/issues/7260 is flipped (and support for old Bazel version is not needed)",
+        ),
     },
 )
 
@@ -142,6 +147,8 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
     args.add_all(toolchain.linker_flags)
     args.add_all(linker_flags.to_list(), format_each = "-L=%s")
     output = None
+    cc_toolchain = None
+    env = dict(ctx.var)
     if target_type in [TARGET_TYPE.BINARY, TARGET_TYPE.TEST]:
         for dep in d_deps:
             args.add_all(dep.libraries)
@@ -150,6 +157,10 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
             args.add_all(["-main", "-unittest"])
         output = ctx.actions.declare_file(_binary_name(ctx, ctx.label.name))
         args.add(output, format = "-of=%s")
+        cc_toolchain = find_cpp_toolchain(ctx)
+        env.update({
+            "CC": cc_toolchain.compiler_executable,
+        })
     elif target_type == TARGET_TYPE.LIBRARY:
         args.add("-lib")
         output = ctx.actions.declare_file(_static_library_name(ctx, ctx.label.name))
@@ -169,11 +180,12 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
 
     ctx.actions.run(
         inputs = inputs,
+        tools = [cc_toolchain.all_files] if cc_toolchain else [],
         outputs = [output],
         executable = toolchain.d_compiler[DefaultInfo].files_to_run,
         arguments = [args],
-        env = ctx.var,
-        use_default_shell_env = target_type != TARGET_TYPE.LIBRARY,  # True to make the linker work properly
+        env = env,
+        use_default_shell_env = False,
         mnemonic = "Dcompile",
         progress_message = "Compiling D %s %s" % (target_type, ctx.label.name),
     )
