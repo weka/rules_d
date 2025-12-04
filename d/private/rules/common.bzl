@@ -3,9 +3,9 @@
 load("@bazel_lib//lib:expand_make_vars.bzl", "expand_variables")
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
 load("@bazel_skylib//lib:paths.bzl", "paths")
-load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
 load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
 load("//d/private:providers.bzl", "DInfo")
+load("//d/private/rules:cc_toolchain.bzl", "find_cc_toolchain_for_linking")
 
 D_FILE_EXTENSIONS = [".d", ".di"]
 
@@ -148,7 +148,7 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
     args.add_all(linker_flags.to_list(), format_each = "-L=%s")
     output = None
     cc_toolchain = None
-    env = dict(ctx.var)
+    env = ctx.var
     if target_type in [TARGET_TYPE.BINARY, TARGET_TYPE.TEST]:
         for dep in d_deps:
             args.add_all(dep.libraries)
@@ -157,10 +157,21 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
             args.add_all(["-main", "-unittest"])
         output = ctx.actions.declare_file(_binary_name(ctx, ctx.label.name))
         args.add(output, format = "-of=%s")
-        cc_toolchain = find_cpp_toolchain(ctx)
+        cc_linker_info = find_cc_toolchain_for_linking(ctx)
+        env = dict(cc_linker_info.env)
         env.update({
-            "CC": cc_toolchain.compiler_executable,
+            "CC": cc_linker_info.cc_compiler,  # Have to use the env variable here, since DMD doesn't support -gcc= flag
+            # Ok, this is a bit weird. Local toolchain from rules_cc works fine if we don't set PATH here.
+            # But doesn't work if we set it to an empty string.
+            # OTOH the toolchain from toolchains_llvm doesn't work without setting PATH here. (Can't find the linker executable)
+            # Even though the cc_wrapper script adds "/usr/bin" to the PATH variable,
+            # it only works if the PATH is already in the environment. (I think they have to `export`)
+            # So toolchains_llvm works if we set PATH to "" but doesn't work if we don't set it at all.
+            # So, to get to a common ground, we set PATH to something generic.
+            "PATH": "/bin:/usr/bin:/usr/local/bin",
         })
+        args.add_all(cc_linker_info.cc_linking_options, format_each = "-Xcc=%s")
+        cc_toolchain = cc_linker_info.cc_toolchain
     elif target_type == TARGET_TYPE.LIBRARY:
         args.add("-lib")
         output = ctx.actions.declare_file(_static_library_name(ctx, ctx.label.name))

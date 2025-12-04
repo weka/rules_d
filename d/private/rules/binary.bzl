@@ -1,10 +1,10 @@
 """D test rule for compiling binaries."""
 
-load("//d/private/rules:common.bzl", "TARGET_TYPE", "compilation_action", "runnable_attrs")
 load(
     "@bazel_tools//tools/cpp:toolchain_utils.bzl",
     "use_cpp_toolchain",
 )
+load("//d/private/rules:common.bzl", "TARGET_TYPE", "compilation_action", "runnable_attrs")
 
 def _d_binary_impl(ctx):
     """Implementation of d_binary rule."""
@@ -14,5 +14,6 @@ d_binary = rule(
     implementation = _d_binary_impl,
     attrs = runnable_attrs,
     toolchains = ["//d:toolchain_type"] + use_cpp_toolchain(),
+    fragments = ["cpp"],
     executable = True,
 )
