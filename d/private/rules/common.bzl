@@ -170,7 +170,9 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
             # So, to get to a common ground, we set PATH to something generic.
             "PATH": "/bin:/usr/bin:/usr/local/bin",
         })
-        args.add_all(cc_linker_info.cc_linking_options, format_each = "-Xcc=%s")
+        if _get_os(ctx) != "windows":
+            # DMD doesn't support -Xcc on Windows
+            args.add_all(cc_linker_info.cc_linking_options, format_each = "-Xcc=%s")
         cc_toolchain = cc_linker_info.cc_toolchain
     elif target_type == TARGET_TYPE.LIBRARY:
         args.add("-lib")
