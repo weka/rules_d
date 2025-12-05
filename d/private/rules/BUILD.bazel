@@ -26,6 +26,7 @@ bzl_library(
         "@bazel_tools//tools/build_defs/cc:action_names.bzl",
         "@bazel_tools//tools/cpp:toolchain_utils.bzl",
         "@rules_cc//cc/common",
+        "@rules_cc//cc:find_cc_toolchain_bzl",  # transitive dependency of @bazel_tools//tools/cpp:toolchain_utils.bzl
     ],
 )
 
