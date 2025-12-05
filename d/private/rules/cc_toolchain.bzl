@@ -1,6 +1,7 @@
 """
 Helper functions to extract the C++ toolchain and linker options for linking.
 """
+
 load(
     "@bazel_tools//tools/build_defs/cc:action_names.bzl",
     "CPP_LINK_EXECUTABLE_ACTION_NAME",
