@@ -2,14 +2,8 @@
 Helper functions to extract the C++ toolchain and linker options for linking.
 """
 
-load(
-    "@bazel_tools//tools/build_defs/cc:action_names.bzl",
-    "CPP_LINK_EXECUTABLE_ACTION_NAME",
-)
-load(
-    "@bazel_tools//tools/cpp:toolchain_utils.bzl",
-    "find_cpp_toolchain",
-)
+load("@rules_cc//cc:action_names.bzl", "CPP_LINK_EXECUTABLE_ACTION_NAME")
+load("@rules_cc//cc:find_cc_toolchain.bzl", "find_cc_toolchain")
 load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
 
 _UNSUPPORTED_FEATURES = [
@@ -67,7 +61,7 @@ def find_cc_toolchain_for_linking(ctx):
         - cc_linking_options: The linker options
         - env: The environment variables to set for the linker
     """
-    cc_toolchain = find_cpp_toolchain(ctx)
+    cc_toolchain = find_cc_toolchain(ctx)
     feature_configuration = cc_common.configure_features(
         ctx = ctx,
         cc_toolchain = cc_toolchain,
