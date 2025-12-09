@@ -1,5 +1,5 @@
-load("@rules_d//d:toolchain.bzl", "d_toolchain")
 load("@rules_cc//cc:defs.bzl", "cc_import")
+load("@rules_d//d:toolchain.bzl", "d_toolchain")
 
 filegroup(
     name = "all_files",
@@ -93,6 +93,7 @@ d_toolchain(
     }),
     d_compiler = ":dmd",
     dub_tool = ":dub",
+    libphobos = ":libphobos",
     linker_flags = [
         "-conf=",
     ] + select({
@@ -109,5 +110,4 @@ d_toolchain(
         ],
     }),
     rdmd_tool = ":rdmd",
-    libphobos = ":libphobos",
 )

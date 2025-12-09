@@ -63,7 +63,7 @@ def object_file_name(ctx, name):
     os = get_os(ctx)
     if os == "linux" or os == "macos":
         return name + ".o"
-    elif os == "windows":   
+    elif os == "windows":
         return name + ".obj"
     else:
         fail("Unsupported os %s for object file: %s" % (os, name))
