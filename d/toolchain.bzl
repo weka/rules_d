@@ -9,6 +9,8 @@ DToolchainInfo = provider(
         "dub_tool": "The dub package manager executable.",
         "linker_flags": "Default linker flags.",
         "rdmd_tool": "The rdmd compile and execute utility.",
+        "druntime": "The D runtime library.",
+        "libphobos": "The Phobos library.",
     },
 )
 
@@ -46,6 +48,8 @@ def _d_toolchain_impl(ctx):
         dub_tool = ctx.attr.dub_tool,
         linker_flags = [_expand_toolchain_variables(ctx, flag) for flag in ctx.attr.linker_flags],
         rdmd_tool = ctx.attr.rdmd_tool,
+        druntime = ctx.attr.druntime,
+        libphobos = ctx.attr.libphobos,
     )
 
     # Export all the providers inside our ToolchainInfo
@@ -85,6 +89,12 @@ d_toolchain = rule(
             doc = "The rdmd compile and execute utility.",
             executable = True,
             cfg = "exec",
+        ),
+        "druntime": attr.label(
+            doc = "The D runtime library.",
+        ),
+        "libphobos": attr.label(
+            doc = "The Phobos library.",
         ),
     },
     doc = """Defines a d compiler/runtime toolchain.
