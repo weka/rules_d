@@ -1,7 +1,7 @@
 """Rule for compiling D libraries."""
 
 load("//d/private:providers.bzl", "DInfo")
-load("//d/private/rules:common.bzl", "TARGET_TYPE", "compilation_action", "library_attrs")
+load("//d/private/rules:compile.bzl", "TARGET_TYPE", "compilation_action", "library_attrs")
 
 def _d_library_impl(ctx):
     """Implementation of d_library rule."""
