@@ -2,8 +2,8 @@
 
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
 load("@bazel_skylib//lib:paths.bzl", "paths")
-load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
 load("@rules_cc//cc:defs.bzl", "cc_common")
+load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
 load("//d/private:providers.bzl", "DInfo")
 load("//d/private/rules:utils.bzl", "object_file_name", "static_library_name")
 
@@ -88,46 +88,56 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
         transitive = [d.string_imports for d in d_deps],
     )
     versions = depset(ctx.attr.versions, transitive = [d.versions for d in d_deps])
-    args = ctx.actions.args()
-    args.add_all(COMPILATION_MODE_FLAGS[ctx.var["COMPILATION_MODE"]])
-    args.add_all(ctx.files.srcs)
-    args.add_all(imports.to_list(), format_each = "-I=%s")
-    args.add_all(string_imports.to_list(), format_each = "-J=%s")
-    args.add_all(toolchain.compiler_flags)
-    args.add_all(compiler_flags.to_list())
-    args.add_all(versions.to_list(), format_each = "-version=%s")
-    output = None
-    if target_type == TARGET_TYPE.TEST:
-        args.add_all(["-main", "-unittest"])
     if target_type == TARGET_TYPE.LIBRARY:
-        args.add("-lib")
         output = ctx.actions.declare_file(static_library_name(ctx, ctx.label.name))
-        library_to_link = None if ctx.attr.source_only else cc_common.create_library_to_link(
-            actions = ctx.actions,
-            static_library = output,
-        )
+        output_pic = ctx.actions.declare_file(static_library_name(ctx, ctx.label.name + ".pic"))
     else:
-        args.add("-c")
         output = ctx.actions.declare_file(object_file_name(ctx, ctx.label.name))
-        library_to_link = None
-    args.add(output, format = "-of=%s")
-
+        output_pic = ctx.actions.declare_file(object_file_name(ctx, ctx.label.name + ".pic"))
     inputs = depset(
         direct = ctx.files.srcs + ctx.files.string_srcs,
         transitive = [toolchain.d_compiler[DefaultInfo].default_runfiles.files] +
                      [d.interface_srcs for d in d_deps],
     )
 
-    ctx.actions.run(
-        inputs = inputs,
-        outputs = [output],
-        executable = toolchain.d_compiler[DefaultInfo].files_to_run,
-        arguments = [args],
-        env = ctx.var,
-        use_default_shell_env = False,
-        mnemonic = "Dcompile",
-        progress_message = "Compiling D %s %s" % (target_type, ctx.label.name),
-    )
+    for (flags, outfile) in [
+        (toolchain.compiler_flags_nopic, output),
+        (toolchain.compiler_flags_pic, output_pic),
+    ]:
+        args = ctx.actions.args()
+        args.add_all(COMPILATION_MODE_FLAGS[ctx.var["COMPILATION_MODE"]])
+        args.add_all(ctx.files.srcs)
+        args.add_all(imports.to_list(), format_each = "-I=%s")
+        args.add_all(string_imports.to_list(), format_each = "-J=%s")
+        args.add_all(toolchain.compiler_flags)
+        args.add_all(compiler_flags.to_list())
+        args.add_all(flags)
+        args.add_all(versions.to_list(), format_each = "-version=%s")
+        if target_type == TARGET_TYPE.TEST:
+            args.add_all(["-main", "-unittest"])
+        if target_type == TARGET_TYPE.LIBRARY:
+            args.add("-lib")
+        else:
+            args.add("-c")
+        args.add(outfile, format = "-of=%s")
+
+        ctx.actions.run(
+            inputs = inputs,
+            outputs = [outfile],
+            executable = toolchain.d_compiler[DefaultInfo].files_to_run,
+            arguments = [args],
+            env = ctx.var,
+            use_default_shell_env = False,
+            mnemonic = "Dcompile",
+            progress_message = "Compiling D %s %s" % (target_type, ctx.label.name),
+        )
+    library_to_link = None
+    if target_type == TARGET_TYPE.LIBRARY and not ctx.attr.source_only:
+        library_to_link = cc_common.create_library_to_link(
+            actions = ctx.actions,
+            pic_static_library = output_pic,
+            static_library = output,
+        )
     linker_input = cc_common.create_linker_input(
         owner = ctx.label,
         libraries = depset(direct = [library_to_link] if library_to_link else None),
@@ -136,11 +146,15 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
         linker_inputs = depset(
             direct = [linker_input],
             transitive = [
-                d.linking_context.linker_inputs for d in c_deps + d_deps]
+                d.linking_context.linker_inputs
+                for d in c_deps + d_deps
+            ],
         ),
     )
+
     return DInfo(
         compilation_output = output,
+        compilation_output_pic = output_pic,
         compiler_flags = compiler_flags,
         imports = depset(
             [paths.join(ctx.label.workspace_root, ctx.label.package)] +

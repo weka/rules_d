@@ -3,6 +3,7 @@
 def _dinfo_init(
         *,
         compilation_output = None,
+        compilation_output_pic = None,
         compiler_flags = None,
         imports = None,
         interface_srcs = None,
@@ -14,6 +15,7 @@ def _dinfo_init(
     """Initializes the DInfo provider."""
     return {
         "compilation_output": compilation_output,
+        "compilation_output_pic": compilation_output_pic,
         "compiler_flags": compiler_flags or depset(),
         "imports": imports or depset(),
         "interface_srcs": interface_srcs or depset(),
@@ -28,6 +30,7 @@ DInfo, _new_dinfo = provider(
     doc = "Provider containing D compilation information",
     fields = {
         "compilation_output": "The output of the compilation action.",
+        "compilation_output_pic": "The output of the compilation action for PIC.",
         "compiler_flags": "List of compiler flags.",
         "imports": "A depset of import paths.",
         "interface_srcs": "A depset of interface source files, transitive sources included.",

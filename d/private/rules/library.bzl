@@ -8,7 +8,7 @@ def _d_library_impl(ctx):
     d_info = compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY)
     return [
         d_info,
-        DefaultInfo(files = depset([d_info.compilation_output])),
+        DefaultInfo(files = depset([d_info.compilation_output, d_info.compilation_output_pic])),
     ]
 
 d_library = rule(
