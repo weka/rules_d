@@ -5,6 +5,8 @@ DToolchainInfo = provider(
     doc = "D compiler information.",
     fields = {
         "compiler_flags": "Default compiler flags.",
+        "compiler_flags_pic": "Extra compiler flags for PIC.",
+        "compiler_flags_nopic": "Extra compiler flags for non-PIC.",
         "d_compiler": "The D compiler executable.",
         "druntime": "The D runtime library. (LDC only)",
         "dub_tool": "The dub package manager executable.",
@@ -44,6 +46,8 @@ def _d_toolchain_impl(ctx):
     )
     d_toolchain_info = DToolchainInfo(
         compiler_flags = [_expand_toolchain_variables(ctx, flag) for flag in ctx.attr.compiler_flags],
+        compiler_flags_pic = [_expand_toolchain_variables(ctx, flag) for flag in ctx.attr.compiler_flags_pic],
+        compiler_flags_nopic = [_expand_toolchain_variables(ctx, flag) for flag in ctx.attr.compiler_flags_nopic],
         d_compiler = ctx.attr.d_compiler,
         dub_tool = ctx.attr.dub_tool,
         linker_flags = [_expand_toolchain_variables(ctx, flag) for flag in ctx.attr.linker_flags],
@@ -70,6 +74,12 @@ d_toolchain = rule(
     attrs = {
         "compiler_flags": attr.string_list(
             doc = "Compiler flags.",
+        ),
+        "compiler_flags_pic": attr.string_list(
+            doc = "Extra compiler flags for PIC.",
+        ),
+        "compiler_flags_nopic": attr.string_list(
+            doc = "Extra compiler flags for non-PIC.",
         ),
         "d_compiler": attr.label(
             doc = "The D compiler.",

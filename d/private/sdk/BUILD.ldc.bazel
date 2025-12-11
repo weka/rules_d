@@ -77,6 +77,8 @@ filegroup(
 d_toolchain(
     name = "d_toolchain",
     compiler_flags = [],
+    compiler_flags_nopic = [],
+    compiler_flags_pic = ["--relocation-model=pic"],
     d_compiler = ":dmd",
     druntime = ":druntime",
     dub_tool = ":dub",
