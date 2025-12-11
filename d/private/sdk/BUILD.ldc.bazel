@@ -1,3 +1,4 @@
+load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("@rules_cc//cc:defs.bzl", "cc_import")
 load("@rules_d//d:toolchain.bzl", "d_toolchain")
 
@@ -28,13 +29,27 @@ filegroup(
     srcs = glob(["lib/**"]),
 )
 
+copy_file(
+    name = "druntime_pic",
+    src = "lib/libdruntime-ldc.a",
+    out = "libdruntime-ldc.pic.a",
+)
+
 cc_import(
     name = "druntime",
+    pic_static_library = ":druntime_pic",
     static_library = "lib/libdruntime-ldc.a",
+)
+
+copy_file(
+    name = "libphobos_pic",
+    src = "lib/libphobos2-ldc.a",
+    out = "libphobos2-ldc.pic.a",
 )
 
 cc_import(
     name = "libphobos",
+    pic_static_library = ":libphobos_pic",
     static_library = "lib/libphobos2-ldc.a",
 )
 
