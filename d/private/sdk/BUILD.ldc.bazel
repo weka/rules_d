@@ -66,12 +66,12 @@ d_toolchain_config(
     druntime = ":druntime",
     dub_tool = ":dub",
     libphobos = ":libphobos",
-    linker_flags_common = [],
+    linker_flags = [],
     rdmd_tool = ":rdmd",
     # LDC-specific flags (this is actually LDC, not DMD, based on ldmd2 binary)
-    copts_common = ["-w"],  # Enable warnings
-    copts_dbg = ["-g", "-d-debug", "-d-version=debug_assert"],
-    copts_opt = ["-O3", "-release"],
+    compiler_flags = ["-w"],  # Enable warnings
+    compiler_flags_dbg = ["-g", "-d-debug", "-d-version=debug_assert"],
+    compiler_flags_opt = ["-O3", "-release"],
     lib_flags = ["-lib"],
     import_flags = ["-I"],
     version_flag = "-d-version=",

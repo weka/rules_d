@@ -27,13 +27,13 @@ DToolchainConfigInfo = provider(
         "druntime": "D runtime library, optional",
 
         # Common flags (applied to all builds)
-        "copts_common": "Common compilation flags (list)",
-        "linker_flags_common": "Common linker flags (list)",
+        "compiler_flags": "Common compilation flags (list)",
+        "linker_flags": "Common linker flags (list)",
         "codegen_opts_common": "Common code generation flags for LLC (list)",
         "global_versions_common": "Common version identifiers (list)",
 
         # Per-mode flags (indexed by compilation mode: fastbuild, dbg, opt)
-        "copts_per_mode": "Compilation flags per mode (dict: mode -> list)",
+        "compiler_flags_per_mode": "Compilation flags per mode (dict: mode -> list)",
         "linker_flags_per_mode": "Linker flags per mode (dict: mode -> list)",
         "codegen_opts_per_mode": "Code generation flags per mode (dict: mode -> list)",
         "global_versions_per_mode": "Version identifiers per mode (dict: mode -> list)",
@@ -64,14 +64,14 @@ def _d_toolchain_config_impl(ctx):
     Returns:
         List containing DToolchainConfigInfo provider.
     """
-    copts_common = ctx.attr.copts_common
-    linker_flags_common = ctx.attr.linker_flags_common
+    compiler_flags = ctx.attr.compiler_flags
+    linker_flags = ctx.attr.linker_flags
 
     # Process per-mode flags
-    copts_per_mode = {
-        "fastbuild": ctx.attr.copts_fastbuild,
-        "dbg": ctx.attr.copts_dbg,
-        "opt": ctx.attr.copts_opt,
+    compiler_flags_per_mode = {
+        "fastbuild": ctx.attr.compiler_flags_fastbuild,
+        "dbg": ctx.attr.compiler_flags_dbg,
+        "opt": ctx.attr.compiler_flags_opt,
     }
 
     linker_flags_per_mode = {
@@ -101,11 +101,11 @@ def _d_toolchain_config_impl(ctx):
             rdmd_tool = ctx.attr.rdmd_tool,
             libphobos = ctx.attr.libphobos,
             druntime = ctx.attr.druntime,
-            copts_common = copts_common,
-            linker_flags_common = linker_flags_common,
+            compiler_flags = compiler_flags,
+            linker_flags = linker_flags,
             codegen_opts_common = ctx.attr.codegen_opts_common,
             global_versions_common = ctx.attr.global_versions_common,
-            copts_per_mode = copts_per_mode,
+            compiler_flags_per_mode = compiler_flags_per_mode,
             linker_flags_per_mode = linker_flags_per_mode,
             codegen_opts_per_mode = codegen_opts_per_mode,
             global_versions_per_mode = global_versions_per_mode,
@@ -179,11 +179,11 @@ d_toolchain_config = rule(
         ),
 
         # Common flags (applied to all compilation modes)
-        "copts_common": attr.string_list(
+        "compiler_flags": attr.string_list(
             default = [],
             doc = "Common compilation flags",
         ),
-        "linker_flags_common": attr.string_list(
+        "linker_flags": attr.string_list(
             default = [],
             doc = "Common linker flags",
         ),
@@ -197,15 +197,15 @@ d_toolchain_config = rule(
         ),
 
         # Per-mode compilation flags
-        "copts_fastbuild": attr.string_list(
+        "compiler_flags_fastbuild": attr.string_list(
             default = [],
             doc = "Compilation flags for fastbuild mode",
         ),
-        "copts_dbg": attr.string_list(
+        "compiler_flags_dbg": attr.string_list(
             default = ["-g", "-d-debug", "-d-version=debug_assert"],
             doc = "Compilation flags for debug mode",
         ),
-        "copts_opt": attr.string_list(
+        "compiler_flags_opt": attr.string_list(
             default = ["-O", "-release"],
             doc = "Compilation flags for optimized mode",
         ),

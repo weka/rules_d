@@ -9,12 +9,6 @@ load("//d/private/rules:utils.bzl", "object_file_name", "static_library_name")
 
 D_FILE_EXTENSIONS = [".d", ".di"]
 
-COMPILATION_MODE_FLAGS = {
-    "dbg": ["-debug", "-g"],
-    "fastbuild": ["-g"],
-    "opt": ["-O", "-release", "-inline"],
-}
-
 common_attrs = {
     "srcs": attr.label_list(
         doc = "List of D '.d' or '.di' source files.",
@@ -89,18 +83,30 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
     )
     versions = depset(ctx.attr.versions, transitive = [d.versions for d in d_deps])
     args = ctx.actions.args()
-    args.add_all(COMPILATION_MODE_FLAGS[ctx.var["COMPILATION_MODE"]])
+
+    # Apply compiler flags in order: toolchain common, toolchain per-mode, user flags
+    if toolchain.compiler_flags:
+        args.add_all(toolchain.compiler_flags)
+
+    compilation_mode = ctx.var["COMPILATION_MODE"]
+    if toolchain.compiler_flags_per_mode and compilation_mode in toolchain.compiler_flags_per_mode:
+        args.add_all(toolchain.compiler_flags_per_mode[compilation_mode])
+
     args.add_all(ctx.files.srcs)
     args.add_all(imports.to_list(), format_each = "-I=%s")
     args.add_all(string_imports.to_list(), format_each = "-J=%s")
-    args.add_all(toolchain.compiler_flags)
     args.add_all(compiler_flags.to_list())
-    args.add_all(versions.to_list(), format_each = "-version=%s")
+
+    # Use version_flag from toolchain config
+    version_flag = toolchain.version_flag if toolchain.version_flag else "-version="
+    args.add_all(versions.to_list(), format_each = version_flag + "%s")
     output = None
     if target_type == TARGET_TYPE.TEST:
         args.add_all(["-main", "-unittest"])
     if target_type == TARGET_TYPE.LIBRARY:
-        args.add("-lib")
+        # Use lib_flags from toolchain config
+        if toolchain.lib_flags:
+            args.add_all(toolchain.lib_flags)
         output = ctx.actions.declare_file(static_library_name(ctx, ctx.label.name))
         library_to_link = None if ctx.attr.source_only else cc_common.create_library_to_link(
             actions = ctx.actions,

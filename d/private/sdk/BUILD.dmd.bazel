@@ -86,8 +86,9 @@ d_toolchain_config(
     d_compiler = ":dmd",
     dub_tool = ":dub",
     rdmd_tool = ":rdmd",
+    libphobos = ":libphobos",
     # DMD-specific flags
-    copts_common = [
+    compiler_flags = [
         "-conf=",
         "-I={D_COMPILER_ROOT}/src/druntime/import",
         "-I={D_COMPILER_ROOT}/src/phobos",
@@ -96,10 +97,7 @@ d_toolchain_config(
         "@platforms//os:macos": [],
         "@platforms//os:windows": [],
     }),
-    d_compiler = ":dmd",
-    dub_tool = ":dub",
-    libphobos = ":libphobos",
-    linker_flags_common = select({
+    linker_flags = select({
         "@platforms//os:linux": [
             "-L{D_COMPILER_ROOT}/linux/lib64",
         ],
@@ -110,8 +108,8 @@ d_toolchain_config(
             "/DEFAULTLIB:legacy_stdio_definitions.lib",
         ],
     }),
-    dbg_copts = ["-g", "-debug", "-version=debug_assert"],
-    opt_copts = ["-O", "-release", "-inline"],
+    compiler_flags_dbg = ["-g", "-debug", "-version=debug_assert"],
+    compiler_flags_opt = ["-O", "-release", "-inline"],
     lib_flags = ["-lib"],
     import_flags = ["-I"],
     version_flag = "-version=",

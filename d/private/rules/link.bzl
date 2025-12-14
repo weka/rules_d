@@ -25,6 +25,19 @@ def link_action(ctx, d_info):
     compilation_outputs = cc_common.create_compilation_outputs(
         objects = depset(direct = [d_info.compilation_output]),
     )
+
+    # Build linker flags in order: toolchain common, toolchain per-mode, user flags, dependency flags
+    user_link_flags = []
+    if toolchain.linker_flags:
+        user_link_flags.extend(toolchain.linker_flags)
+
+    compilation_mode = ctx.var["COMPILATION_MODE"]
+    if toolchain.linker_flags_per_mode and compilation_mode in toolchain.linker_flags_per_mode:
+        user_link_flags.extend(toolchain.linker_flags_per_mode[compilation_mode])
+
+    user_link_flags.extend(ctx.attr.linkopts)
+    user_link_flags.extend(d_info.linker_flags.to_list())
+
     return cc_common.link(
         name = ctx.label.name,
         actions = ctx.actions,
@@ -32,5 +45,5 @@ def link_action(ctx, d_info):
         cc_toolchain = cc_linker_info.cc_toolchain,
         compilation_outputs = compilation_outputs,
         linking_contexts = linking_contexts,
-        user_link_flags = toolchain.linker_flags + ctx.attr.linkopts + d_info.linker_flags.to_list(),
+        user_link_flags = user_link_flags,
     ).executable

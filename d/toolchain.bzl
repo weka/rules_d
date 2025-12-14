@@ -18,8 +18,7 @@ DToolchainInfo = provider(
         # New configuration fields
         "c_compiler": "The C compiler (for linking).",
         "llc_compiler": "The LLC compiler (for bitcode).",
-        "copts_common": "Common compilation flags (list).",
-        "copts_per_mode": "Compilation flags per mode (dict: mode -> list).",
+        "compiler_flags_per_mode": "Compilation flags per mode (dict: mode -> list).",
         "linker_flags_per_mode": "Linker flags per mode (dict: mode -> list).",
         "codegen_opts_common": "Common code generation flags for LLC (list).",
         "codegen_opts_per_mode": "Code generation flags per mode (dict: mode -> list).",
@@ -79,16 +78,15 @@ def _d_toolchain_impl(ctx):
         # Create DToolchainInfo with all config fields
         d_toolchain_info = DToolchainInfo(
             # Legacy fields (for backward compatibility)
-            compiler_flags = _expand_toolchain_variables_in_flags(ctx, config.copts_common, config),
+            compiler_flags = _expand_toolchain_variables_in_flags(ctx, config.compiler_flags, config),
             d_compiler = config.d_compiler,
             dub_tool = config.dub_tool,
-            linker_flags = _expand_toolchain_variables_in_flags(ctx, config.linker_flags_common, config),
+            linker_flags = _expand_toolchain_variables_in_flags(ctx, config.linker_flags, config),
             rdmd_tool = config.rdmd_tool,
             # New configuration fields
             c_compiler = config.c_compiler,
             llc_compiler = config.llc_compiler,
-            copts_common = _expand_toolchain_variables_in_flags(ctx, config.copts_common, config),
-            copts_per_mode = _expand_toolchain_variables_in_flags_per_mode(ctx, config.copts_per_mode, config),
+            compiler_flags_per_mode = _expand_toolchain_variables_in_flags_per_mode(ctx, config.compiler_flags_per_mode, config),
             linker_flags_per_mode = _expand_toolchain_variables_in_flags_per_mode(ctx, config.linker_flags_per_mode, config),
             codegen_opts_common = _expand_toolchain_variables_in_flags(ctx, config.codegen_opts_common, config),
             codegen_opts_per_mode = _expand_toolchain_variables_in_flags_per_mode(ctx, config.codegen_opts_per_mode, config),
@@ -155,8 +153,7 @@ def _d_toolchain_impl(ctx):
             # Provide default values for new fields
             c_compiler = None,
             llc_compiler = None,
-            copts_common = [],
-            copts_per_mode = {},
+            compiler_flags_per_mode = {},
             linker_flags_per_mode = {},
             codegen_opts_common = [],
             codegen_opts_per_mode = {},
