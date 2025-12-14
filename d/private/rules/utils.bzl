@@ -67,3 +67,19 @@ def object_file_name(ctx, name):
         return name + ".obj"
     else:
         fail("Unsupported os %s for object file: %s" % (os, name))
+
+def resolve_tristate_flag(attr_value, toolchain_default):
+    """Resolves a tri-state attribute (auto/on/off) to a boolean.
+
+    Args:
+        attr_value: The attribute value (string: "auto", "on", or "off")
+        toolchain_default: The default value from toolchain config (boolean)
+    Returns:
+        Boolean: True if enabled, False if disabled
+    """
+    if attr_value == "on":
+        return True
+    elif attr_value == "off":
+        return False
+    else:  # "auto"
+        return toolchain_default

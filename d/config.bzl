@@ -40,6 +40,7 @@ DToolchainConfigInfo = provider(
 
         # Special flags
         "lib_flags": "Flags for library creation (list)",
+        "single_obj_flag": "Flags for single object mode (list)",
         "import_flags": "Flags for import paths (list)",
         "version_flag": "Flag prefix for version identifiers (string)",
         "hdrgen_flags": "Flags for header generation (list)",
@@ -110,6 +111,7 @@ def _d_toolchain_config_impl(ctx):
             codegen_opts_per_mode = codegen_opts_per_mode,
             global_versions_per_mode = global_versions_per_mode,
             lib_flags = ctx.attr.lib_flags,
+            single_obj_flag = ctx.attr.single_obj_flag,
             import_flags = ctx.attr.import_flags,
             version_flag = ctx.attr.version_flag,
             hdrgen_flags = ctx.attr.hdrgen_flags,
@@ -256,6 +258,10 @@ d_toolchain_config = rule(
         "lib_flags": attr.string_list(
             default = ["-lib"],
             doc = "Flags for library creation",
+        ),
+        "single_obj_flag": attr.string_list(
+            default = [],
+            doc = "Flags for single object mode (e.g., ['--singleobj'] for LDC)",
         ),
         "import_flags": attr.string_list(
             default = ["-I"],

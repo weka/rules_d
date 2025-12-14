@@ -5,7 +5,7 @@ load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@rules_cc//cc:defs.bzl", "cc_common")
 load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
 load("//d/private:providers.bzl", "DInfo")
-load("//d/private/rules:utils.bzl", "object_file_name", "static_library_name")
+load("//d/private/rules:utils.bzl", "object_file_name", "resolve_tristate_flag", "static_library_name")
 
 D_FILE_EXTENSIONS = [".d", ".di"]
 
@@ -43,6 +43,15 @@ library_attrs = dicts.add(
     common_attrs,
     {
         "source_only": attr.bool(doc = "If true, the source files are compiled, but not library is produced."),
+        "single_object": attr.string(
+            default = "auto",
+            values = ["auto", "on", "off"],
+            doc = """Controls library compilation mode:
+                - "auto": Use toolchain default (from toolchain config)
+                - "on": Single object mode (archive with one object file)
+                - "off": Multi-object mode (archive with multiple object files)
+            """,
+        ),
     },
 )
 
@@ -104,9 +113,23 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
     if target_type == TARGET_TYPE.TEST:
         args.add_all(["-main", "-unittest"])
     if target_type == TARGET_TYPE.LIBRARY:
-        # Use lib_flags from toolchain config
+        # Always use lib_flags to create archive
         if toolchain.lib_flags:
             args.add_all(toolchain.lib_flags)
+
+        # Add single object flag if enabled
+        # NOTE: Bitcode compilation (future phase) will require single object mode.
+        # When compile_via_bc is enabled, single_object must be "on" or "auto"
+        # (resolving to True). The --singleobj flag ensures the bitcode workflow
+        # produces a single object file before archiving.
+        single_object = resolve_tristate_flag(ctx.attr.single_object, toolchain.single_object)
+        if single_object:
+            # Verify compiler supports single object mode
+            if not toolchain.single_obj_flag:
+                fail("Single object mode requested but not supported by compiler. " +
+                     "Use LDC toolchain or set single_object='off'.")
+            args.add_all(toolchain.single_obj_flag)
+
         output = ctx.actions.declare_file(static_library_name(ctx, ctx.label.name))
         library_to_link = None if ctx.attr.source_only else cc_common.create_library_to_link(
             actions = ctx.actions,
