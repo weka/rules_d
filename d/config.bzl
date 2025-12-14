@@ -40,7 +40,7 @@ DToolchainConfigInfo = provider(
 
         # Special flags
         "lib_flags": "Flags for library creation (list)",
-        "single_obj_flag": "Flags for single object mode (list)",
+        "single_obj_flag": "Flag for single object mode (string, optional)",
         "import_flags": "Flags for import paths (list)",
         "version_flag": "Flag prefix for version identifiers (string)",
         "hdrgen_flags": "Flags for header generation (list)",
@@ -259,9 +259,9 @@ d_toolchain_config = rule(
             default = ["-lib"],
             doc = "Flags for library creation",
         ),
-        "single_obj_flag": attr.string_list(
-            default = [],
-            doc = "Flags for single object mode (e.g., ['--singleobj'] for LDC)",
+        "single_obj_flag": attr.string(
+            default = "",
+            doc = "Flag for single object mode (e.g., '--singleobj' for LDC)",
         ),
         "import_flags": attr.string_list(
             default = ["-I"],

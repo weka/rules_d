@@ -128,7 +128,7 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
             if not toolchain.single_obj_flag:
                 fail("Single object mode requested but not supported by compiler. " +
                      "Use LDC toolchain or set single_object='off'.")
-            args.add_all(toolchain.single_obj_flag)
+            args.add(toolchain.single_obj_flag)
 
         output = ctx.actions.declare_file(static_library_name(ctx, ctx.label.name))
         library_to_link = None if ctx.attr.source_only else cc_common.create_library_to_link(

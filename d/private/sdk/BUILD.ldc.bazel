@@ -73,7 +73,7 @@ d_toolchain_config(
     compiler_flags_dbg = ["-g", "-d-debug", "-d-version=debug_assert"],
     compiler_flags_opt = ["-O3", "-release"],
     lib_flags = ["-lib"],
-    single_obj_flag = ["--singleobj"],
+    single_obj_flag = "--singleobj",
     import_flags = ["-I"],
     version_flag = "-d-version=",
     # LDC supports bitcode

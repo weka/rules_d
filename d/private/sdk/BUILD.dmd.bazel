@@ -111,7 +111,7 @@ d_toolchain_config(
     compiler_flags_dbg = ["-g", "-debug", "-version=debug_assert"],
     compiler_flags_opt = ["-O", "-release", "-inline"],
     lib_flags = ["-lib"],
-    single_obj_flag = [],  # DMD doesn't support single object mode
+    single_obj_flag = "",  # DMD doesn't support single object mode
     import_flags = ["-I"],
     version_flag = "-version=",
     # DMD doesn't support bitcode
