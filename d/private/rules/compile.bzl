@@ -137,6 +137,28 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
         transitive = [d.transitive_data for d in d_deps if hasattr(d, "transitive_data")],
     )
 
+    # Determine which sources to export (libraries only)
+    d_exports = depset()
+    direct_interface_srcs = ctx.files.srcs
+
+    if target_type == TARGET_TYPE.LIBRARY:
+        # Priority: hdrs > exports > all srcs (backward compatibility)
+        public_srcs = []
+        if hasattr(ctx.files, "hdrs") and ctx.files.hdrs:
+            public_srcs.extend(ctx.files.hdrs)
+        if hasattr(ctx.files, "exports") and ctx.files.exports:
+            public_srcs.extend(ctx.files.exports)
+
+        # If no hdrs/exports specified, use all srcs (backward compatibility)
+        if public_srcs:
+            direct_interface_srcs = public_srcs
+
+        # Build d_exports with transitive
+        d_exports = depset(
+            direct_interface_srcs,
+            transitive = [d.d_exports for d in d_deps if hasattr(d, "d_exports")],
+        )
+
     args = ctx.actions.args()
 
     # Apply compiler flags in order: toolchain common, toolchain per-mode, user flags
@@ -188,7 +210,9 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
 
     inputs = depset(
         direct = (ctx.files.srcs + ctx.files.string_srcs +
-                  (ctx.files.data if hasattr(ctx.files, "data") else [])),
+                  (ctx.files.data if hasattr(ctx.files, "data") else []) +
+                  (ctx.files.hdrs if hasattr(ctx.files, "hdrs") else []) +
+                  (ctx.files.exports if hasattr(ctx.files, "exports") else [])),
         transitive = [toolchain.d_compiler[DefaultInfo].default_runfiles.files] +
                      [d.interface_srcs for d in d_deps],
     )
@@ -225,7 +249,7 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
             transitive = [d.imports for d in d_deps],
         ),
         interface_srcs = depset(
-            ctx.files.srcs + ctx.files.string_srcs,
+            direct_interface_srcs + ctx.files.string_srcs,
             transitive = [d.interface_srcs for d in d_deps],
         ),
         linking_context = linking_context,
@@ -239,7 +263,7 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
         versions = versions,
         data = data_files,
         transitive_data = transitive_data,
-        d_exports = depset(),  # Populated in sub-phase 2
+        d_exports = d_exports,
         libs_bc = depset(),  # Populated in sub-phase 5
         libs_non_bc = depset(),  # Populated in sub-phase 5
     )
