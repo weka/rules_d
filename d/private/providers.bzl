@@ -10,7 +10,12 @@ def _dinfo_init(
         linking_context = None,
         source_only = False,
         string_imports = None,
-        versions = None):
+        versions = None,
+        data = None,
+        transitive_data = None,
+        d_exports = None,
+        libs_bc = None,
+        libs_non_bc = None):
     """Initializes the DInfo provider."""
     return {
         "compilation_output": compilation_output,
@@ -22,6 +27,11 @@ def _dinfo_init(
         "source_only": source_only,
         "string_imports": string_imports or depset(),
         "versions": versions or depset(),
+        "data": data or depset(),
+        "transitive_data": transitive_data or depset(),
+        "d_exports": d_exports or depset(),
+        "libs_bc": libs_bc or depset(),
+        "libs_non_bc": libs_non_bc or depset(),
     }
 
 DInfo, _new_dinfo = provider(
@@ -36,6 +46,11 @@ DInfo, _new_dinfo = provider(
         "source_only": "If true, the source files are compiled, but no library is produced.",
         "string_imports": "A depset of string import paths.",
         "versions": "A depset of version identifiers.",
+        "data": "A depset of data files for this target.",
+        "transitive_data": "A depset of all transitive data files.",
+        "d_exports": "A depset of exported D source files (public API).",
+        "libs_bc": "A depset of bitcode library files.",
+        "libs_non_bc": "A depset of non-bitcode library files.",
     },
     init = _dinfo_init,
 )

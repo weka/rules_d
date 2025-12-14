@@ -52,6 +52,27 @@ library_attrs = dicts.add(
                 - "off": Multi-object mode (archive with multiple object files)
             """,
         ),
+        "data": attr.label_list(
+            allow_files = True,
+            doc = "List of files to be made available at compile time.",
+        ),
+        "hdrs": attr.label_list(
+            allow_files = D_FILE_EXTENSIONS,
+            doc = "D header/interface files (.di) for public API.",
+        ),
+        "exports": attr.label_list(
+            allow_files = D_FILE_EXTENSIONS,
+            doc = "D source files to export as public API.",
+        ),
+        "implementation_deps": attr.label_list(
+            doc = "Private dependencies not propagated to consumers.",
+            providers = [[CcInfo], [DInfo]],
+        ),
+        "compile_via_bc": attr.string(
+            default = "auto",
+            values = ["auto", "on", "off"],
+            doc = "Controls bitcode compilation (requires single_object).",
+        ),
     },
 )
 
@@ -90,14 +111,38 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
         [paths.join(ctx.label.workspace_root, ctx.label.package, imp) for imp in ctx.attr.string_imports],
         transitive = [d.string_imports for d in d_deps],
     )
-    versions = depset(ctx.attr.versions, transitive = [d.versions for d in d_deps])
+
+    # Collect global versions from toolchain
+    global_versions = []
+    if hasattr(toolchain, "global_versions_common") and toolchain.global_versions_common:
+        global_versions.extend(toolchain.global_versions_common)
+
+    compilation_mode = ctx.var["COMPILATION_MODE"]
+    if (hasattr(toolchain, "global_versions_per_mode") and
+        toolchain.global_versions_per_mode and
+        compilation_mode in toolchain.global_versions_per_mode):
+        global_versions.extend(toolchain.global_versions_per_mode[compilation_mode])
+
+    versions = depset(
+        ctx.attr.versions + global_versions,
+        transitive = [d.versions for d in d_deps],
+    )
+
+    # Collect data files
+    data_files = depset(
+        ctx.files.data if hasattr(ctx.files, "data") else [],
+        transitive = [d.data for d in d_deps if hasattr(d, "data")],
+    )
+    transitive_data = depset(
+        transitive = [d.transitive_data for d in d_deps if hasattr(d, "transitive_data")],
+    )
+
     args = ctx.actions.args()
 
     # Apply compiler flags in order: toolchain common, toolchain per-mode, user flags
     if toolchain.compiler_flags:
         args.add_all(toolchain.compiler_flags)
 
-    compilation_mode = ctx.var["COMPILATION_MODE"]
     if toolchain.compiler_flags_per_mode and compilation_mode in toolchain.compiler_flags_per_mode:
         args.add_all(toolchain.compiler_flags_per_mode[compilation_mode])
 
@@ -142,7 +187,8 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
     args.add(output, format = "-of=%s")
 
     inputs = depset(
-        direct = ctx.files.srcs + ctx.files.string_srcs,
+        direct = (ctx.files.srcs + ctx.files.string_srcs +
+                  (ctx.files.data if hasattr(ctx.files, "data") else [])),
         transitive = [toolchain.d_compiler[DefaultInfo].default_runfiles.files] +
                      [d.interface_srcs for d in d_deps],
     )
@@ -184,10 +230,16 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
         ),
         linking_context = linking_context,
         linker_flags = linker_flags,
+        source_only = ctx.attr.source_only if target_type == TARGET_TYPE.LIBRARY else False,
         string_imports = depset(
             ([paths.join(ctx.label.workspace_root, ctx.label.package)] if ctx.files.string_srcs else []) +
             [paths.join(ctx.label.workspace_root, ctx.label.package, imp) for imp in ctx.attr.string_imports],
             transitive = [d.string_imports for d in d_deps],
         ),
         versions = versions,
+        data = data_files,
+        transitive_data = transitive_data,
+        d_exports = depset(),  # Populated in sub-phase 2
+        libs_bc = depset(),  # Populated in sub-phase 5
+        libs_non_bc = depset(),  # Populated in sub-phase 5
     )
