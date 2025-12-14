@@ -92,24 +92,39 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
         The DInfo provider containing the compilation information.
     """
     toolchain = ctx.toolchains["//d:toolchain_type"].d_toolchain_info
+
+    # Regular dependencies (propagated to consumers)
     c_deps = [d[CcInfo] for d in ctx.attr.deps if CcInfo in d]
     d_deps = [d[DInfo] for d in ctx.attr.deps if DInfo in d]
+
+    # Implementation dependencies (not propagated to consumers)
+    impl_c_deps = []
+    impl_d_deps = []
+    if hasattr(ctx.attr, "implementation_deps") and ctx.attr.implementation_deps:
+        impl_c_deps = [d[CcInfo] for d in ctx.attr.implementation_deps if CcInfo in d]
+        impl_d_deps = [d[DInfo] for d in ctx.attr.implementation_deps if DInfo in d]
+
+    # For compilation: use ALL deps (regular + implementation)
+    all_c_deps = c_deps + impl_c_deps
+    all_d_deps = d_deps + impl_d_deps
+
+    # Collect from all deps for compilation
     compiler_flags = depset(
         ctx.attr.dopts,
-        transitive = [d.compiler_flags for d in d_deps],
+        transitive = [d.compiler_flags for d in all_d_deps],
     )
     imports = depset(
         [paths.join(ctx.label.workspace_root, ctx.label.package, imp) for imp in ctx.attr.imports],
-        transitive = [d.imports for d in d_deps],
+        transitive = [d.imports for d in all_d_deps],
     )
     linker_flags = depset(
         ctx.attr.linkopts,
-        transitive = [d.linker_flags for d in d_deps],
+        transitive = [d.linker_flags for d in all_d_deps],
     )
     string_imports = depset(
         ([paths.join(ctx.label.workspace_root, ctx.label.package)] if ctx.files.string_srcs else []) +
         [paths.join(ctx.label.workspace_root, ctx.label.package, imp) for imp in ctx.attr.string_imports],
-        transitive = [d.string_imports for d in d_deps],
+        transitive = [d.string_imports for d in all_d_deps],
     )
 
     # Collect global versions from toolchain
@@ -125,16 +140,16 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
 
     versions = depset(
         ctx.attr.versions + global_versions,
-        transitive = [d.versions for d in d_deps],
+        transitive = [d.versions for d in all_d_deps],
     )
 
-    # Collect data files
+    # Collect data files (from all deps for compilation)
     data_files = depset(
         ctx.files.data if hasattr(ctx.files, "data") else [],
-        transitive = [d.data for d in d_deps if hasattr(d, "data")],
+        transitive = [d.data for d in all_d_deps if hasattr(d, "data")],
     )
     transitive_data = depset(
-        transitive = [d.transitive_data for d in d_deps if hasattr(d, "transitive_data")],
+        transitive = [d.transitive_data for d in all_d_deps if hasattr(d, "transitive_data")],
     )
 
     # Determine which sources to export (libraries only)
@@ -153,10 +168,10 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
         if public_srcs:
             direct_interface_srcs = public_srcs
 
-        # Build d_exports with transitive
+        # Build d_exports with transitive (from all deps for compilation)
         d_exports = depset(
             direct_interface_srcs,
-            transitive = [d.d_exports for d in d_deps if hasattr(d, "d_exports")],
+            transitive = [d.d_exports for d in all_d_deps if hasattr(d, "d_exports")],
         )
 
     args = ctx.actions.args()
@@ -214,7 +229,7 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
                   (ctx.files.hdrs if hasattr(ctx.files, "hdrs") else []) +
                   (ctx.files.exports if hasattr(ctx.files, "exports") else [])),
         transitive = [toolchain.d_compiler[DefaultInfo].default_runfiles.files] +
-                     [d.interface_srcs for d in d_deps],
+                     [d.interface_srcs for d in all_d_deps],
     )
 
     ctx.actions.run(
@@ -236,34 +251,52 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
             direct = [linker_input],
             transitive = [
                 d.linking_context.linker_inputs
-                for d in c_deps + d_deps
+                for d in all_c_deps + all_d_deps
             ],
         ),
     )
+    # For DInfo propagation: use only regular deps (not implementation deps)
     return DInfo(
         compilation_output = output,
-        compiler_flags = compiler_flags,
+        compiler_flags = depset(
+            ctx.attr.dopts,
+            transitive = [d.compiler_flags for d in d_deps],  # Only regular deps
+        ),
         imports = depset(
             [paths.join(ctx.label.workspace_root, ctx.label.package)] +
             [paths.join(ctx.label.workspace_root, ctx.label.package, imp) for imp in ctx.attr.imports],
-            transitive = [d.imports for d in d_deps],
+            transitive = [d.imports for d in d_deps],  # Only regular deps
         ),
         interface_srcs = depset(
             direct_interface_srcs + ctx.files.string_srcs,
-            transitive = [d.interface_srcs for d in d_deps],
+            transitive = [d.interface_srcs for d in d_deps],  # Only regular deps
         ),
-        linking_context = linking_context,
-        linker_flags = linker_flags,
+        linking_context = linking_context,  # Already includes all deps internally
+        linker_flags = depset(
+            ctx.attr.linkopts,
+            transitive = [d.linker_flags for d in d_deps],  # Only regular deps
+        ),
         source_only = ctx.attr.source_only if target_type == TARGET_TYPE.LIBRARY else False,
         string_imports = depset(
             ([paths.join(ctx.label.workspace_root, ctx.label.package)] if ctx.files.string_srcs else []) +
             [paths.join(ctx.label.workspace_root, ctx.label.package, imp) for imp in ctx.attr.string_imports],
-            transitive = [d.string_imports for d in d_deps],
+            transitive = [d.string_imports for d in d_deps],  # Only regular deps
         ),
-        versions = versions,
-        data = data_files,
-        transitive_data = transitive_data,
-        d_exports = d_exports,
+        versions = depset(
+            ctx.attr.versions + global_versions,
+            transitive = [d.versions for d in d_deps],  # Only regular deps
+        ),
+        data = depset(
+            ctx.files.data if hasattr(ctx.files, "data") else [],
+            transitive = [d.data for d in d_deps if hasattr(d, "data")],  # Only regular deps
+        ),
+        transitive_data = depset(
+            transitive = [d.transitive_data for d in d_deps if hasattr(d, "transitive_data")],  # Only regular deps
+        ),
+        d_exports = depset(
+            direct_interface_srcs if target_type == TARGET_TYPE.LIBRARY else [],
+            transitive = [d.d_exports for d in d_deps if hasattr(d, "d_exports")],  # Only regular deps
+        ),
         libs_bc = depset(),  # Populated in sub-phase 5
         libs_non_bc = depset(),  # Populated in sub-phase 5
     )
