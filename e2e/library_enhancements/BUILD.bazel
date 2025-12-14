@@ -1,0 +1,34 @@
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
+
+package(default_visibility = ["//visibility:public"])
+
+# Aggregate test targets for easy testing
+test_suite(
+    name = "all_tests",
+    tests = [
+        "//foundation:data_test",
+        "//foundation:deps_only_test",
+        "//headers_exports:hdrs_only_test",
+        "//headers_exports:legacy_test",
+        "//headers_exports:partial_export_test",
+        "//impl_deps:middle_lib_test",
+        "//impl_deps:top_lib_test",
+    ],
+)
+
+# Build test to verify all libraries can be built
+build_test(
+    name = "build_test",
+    targets = [
+        "//foundation:deps_only_lib",
+        "//foundation:helper1",
+        "//foundation:helper2",
+        "//foundation:lib_with_data",
+        "//headers_exports:hdrs_only_lib",
+        "//headers_exports:legacy_lib",
+        "//headers_exports:partial_export_lib",
+        "//impl_deps:base_lib",
+        "//impl_deps:middle_lib",
+        "//impl_deps:top_lib",
+    ],
+)

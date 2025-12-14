@@ -6,9 +6,11 @@ load("//d/private/rules:compile.bzl", "TARGET_TYPE", "compilation_action", "libr
 def _d_library_impl(ctx):
     """Implementation of d_library rule."""
     d_info = compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY)
+    # Handle header-only or deps-only libraries (no compilation_output)
+    files = depset([d_info.compilation_output]) if d_info.compilation_output else depset()
     return [
         d_info,
-        DefaultInfo(files = depset([d_info.compilation_output])),
+        DefaultInfo(files = files),
     ]
 
 d_library = rule(

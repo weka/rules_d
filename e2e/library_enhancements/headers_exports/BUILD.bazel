@@ -1,0 +1,45 @@
+load("@rules_d//d:defs.bzl", "d_library", "d_test")
+
+package(default_visibility = ["//visibility:public"])
+
+# Test 1: Library with separate interface file
+# Compiles implementation but only exposes .di interface to consumers
+d_library(
+    name = "hdrs_only_lib",
+    srcs = ["hdrs_only_impl.d"],
+    hdrs = ["hdrs_only_lib.di"],
+)
+
+d_test(
+    name = "hdrs_only_test",
+    srcs = ["hdrs_only_test.d"],
+    deps = [":hdrs_only_lib"],
+)
+
+# Test 2: Library with exports attribute
+d_library(
+    name = "partial_export_lib",
+    srcs = [
+        "internal.d",
+        "public_api.d",
+    ],
+    exports = ["public_api.d"],
+)
+
+d_test(
+    name = "partial_export_test",
+    srcs = ["partial_export_test.d"],
+    deps = [":partial_export_lib"],
+)
+
+# Test 3: Library without hdrs/exports (backward compatibility)
+d_library(
+    name = "legacy_lib",
+    srcs = ["legacy.d"],
+)
+
+d_test(
+    name = "legacy_test",
+    srcs = ["legacy_test.d"],
+    deps = [":legacy_lib"],
+)

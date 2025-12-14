@@ -1,0 +1,39 @@
+load("@rules_d//d:defs.bzl", "d_library", "d_test")
+
+package(default_visibility = ["//visibility:public"])
+
+# Base library (the implementation detail)
+d_library(
+    name = "base_lib",
+    srcs = ["base_lib.d"],
+)
+
+# Middle library - uses base_lib as implementation_deps
+d_library(
+    name = "middle_lib",
+    srcs = ["middle_lib.d"],
+    implementation_deps = [":base_lib"],
+)
+
+# Top library - depends on middle_lib
+# Should NOT see base_lib's interface
+d_library(
+    name = "top_lib",
+    srcs = ["top_lib.d"],
+    deps = [":middle_lib"],
+)
+
+# Test that middle_lib can use base_lib
+d_test(
+    name = "middle_lib_test",
+    srcs = ["middle_lib_test.d"],
+    deps = [":middle_lib"],
+)
+
+# Test that top_lib can use middle_lib
+# but cannot see base_lib
+d_test(
+    name = "top_lib_test",
+    srcs = ["top_lib_test.d"],
+    deps = [":top_lib"],
+)

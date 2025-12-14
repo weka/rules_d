@@ -13,7 +13,7 @@ common_attrs = {
     "srcs": attr.label_list(
         doc = "List of D '.d' or '.di' source files.",
         allow_files = D_FILE_EXTENSIONS,
-        allow_empty = False,
+        allow_empty = True,
     ),
     "deps": attr.label_list(doc = "List of dependencies.", providers = [[CcInfo], [DInfo]]),
     "dopts": attr.string_list(doc = "Compiler flags."),
@@ -172,6 +172,61 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
         d_exports = depset(
             direct_interface_srcs,
             transitive = [d.d_exports for d in all_d_deps if hasattr(d, "d_exports")],
+        )
+
+    # Check if this is a header-only or deps-only library (no srcs to compile)
+    has_srcs = len(ctx.files.srcs) > 0
+
+    # Skip compilation if no sources (header-only or deps-only library)
+    if not has_srcs and target_type == TARGET_TYPE.LIBRARY:
+        # Return DInfo without compilation
+        return DInfo(
+            compilation_output = None,
+            compiler_flags = depset(
+                ctx.attr.dopts,
+                transitive = [d.compiler_flags for d in d_deps],
+            ),
+            imports = depset(
+                [paths.join(ctx.label.workspace_root, ctx.label.package)] +
+                [paths.join(ctx.label.workspace_root, ctx.label.package, imp) for imp in ctx.attr.imports],
+                transitive = [d.imports for d in d_deps],
+            ),
+            interface_srcs = depset(
+                direct_interface_srcs + ctx.files.string_srcs,
+                transitive = [d.interface_srcs for d in d_deps],
+            ),
+            linking_context = cc_common.create_linking_context(
+                linker_inputs = depset(
+                    transitive = [d.linking_context.linker_inputs for d in all_c_deps + all_d_deps],
+                ),
+            ),
+            linker_flags = depset(
+                ctx.attr.linkopts,
+                transitive = [d.linker_flags for d in d_deps],
+            ),
+            source_only = ctx.attr.source_only if hasattr(ctx.attr, "source_only") else False,
+            string_imports = depset(
+                ([paths.join(ctx.label.workspace_root, ctx.label.package)] if ctx.files.string_srcs else []) +
+                [paths.join(ctx.label.workspace_root, ctx.label.package, imp) for imp in ctx.attr.string_imports],
+                transitive = [d.string_imports for d in d_deps],
+            ),
+            versions = depset(
+                ctx.attr.versions + global_versions,
+                transitive = [d.versions for d in d_deps],
+            ),
+            data = depset(
+                ctx.files.data if hasattr(ctx.files, "data") else [],
+                transitive = [d.data for d in d_deps if hasattr(d, "data")],
+            ),
+            transitive_data = depset(
+                transitive = [d.transitive_data for d in d_deps if hasattr(d, "transitive_data")],
+            ),
+            d_exports = depset(
+                direct_interface_srcs,
+                transitive = [d.d_exports for d in d_deps if hasattr(d, "d_exports")],
+            ),
+            libs_bc = depset(),
+            libs_non_bc = depset(),
         )
 
     args = ctx.actions.args()

@@ -1,0 +1,6 @@
+# Use bzlmod
+common --enable_bzlmod
+
+# Don't create symlinks like bazel-out in the project.
+# These cause VSCode's search to be slow.
+build --experimental_convenience_symlinks=ignore

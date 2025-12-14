@@ -1,0 +1,50 @@
+# Override http_archive for local testing
+local_repository(
+    name = "rules_d",
+    path = "../..",
+)
+
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+http_archive(
+    name = "bazel_skylib",
+    sha256 = "bc283cdfcd526a52c3201279cda4bc298652efa898b10b4db0837dc51652756f",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/1.7.1/bazel-skylib-1.7.1.tar.gz",
+        "https://github.com/bazelbuild/bazel-skylib/releases/download/1.7.1/bazel-skylib-1.7.1.tar.gz",
+    ],
+)
+
+load("@bazel_skylib//:workspace.bzl", "bazel_skylib_workspace")
+
+bazel_skylib_workspace()
+
+http_archive(
+    name = "rules_cc",
+    sha256 = "ae244f400218f4a12ee81658ff246c0be5cb02c5ca2de5519ed505a6795431e9",
+    strip_prefix = "rules_cc-0.2.0",
+    url = "https://github.com/bazelbuild/rules_cc/releases/download/0.2.0/rules_cc-0.2.0.tar.gz",
+)
+
+load("@rules_cc//cc:repositories.bzl", "rules_cc_dependencies", "rules_cc_toolchains")
+
+rules_cc_dependencies()
+
+rules_cc_toolchains()
+
+######################
+# rules_d setup      #
+######################
+load("@rules_d//d:repositories.bzl", "d_register_toolchains", "rules_d_dependencies")
+
+rules_d_dependencies()
+
+d_register_toolchains(
+    "dmd_toolchain",
+    d_version = "dmd-2.111.0",
+)
+
+d_register_toolchains(
+    "ldc_toolchain",
+    d_version = "ldc-1.41.0",
+)
