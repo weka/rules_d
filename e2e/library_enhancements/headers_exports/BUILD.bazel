@@ -5,18 +5,37 @@ package(default_visibility = ["//visibility:public"])
 # Test 1: Library with separate interface file
 # Compiles implementation but only exposes .di interface to consumers
 d_library(
-    name = "hdrs_only_lib",
+    name = "separate_interface_lib",
     srcs = ["hdrs_only_impl.d"],
     hdrs = ["hdrs_only_lib.di"],
 )
 
 d_test(
-    name = "hdrs_only_test",
+    name = "separate_interface_test",
     srcs = ["hdrs_only_test.d"],
-    deps = [":hdrs_only_lib"],
+    deps = [":separate_interface_lib"],
 )
 
-# Test 2: Library with exports attribute
+# Test 2: True headers-only library (no compilation)
+# Provides interface with no sources - implementation comes from dependency
+d_library(
+    name = "pure_interface_impl",
+    srcs = ["pure_interface_impl.d"],
+)
+
+d_library(
+    name = "pure_interface_lib",
+    hdrs = ["pure_interface.di"],
+    deps = [":pure_interface_impl"],
+)
+
+d_test(
+    name = "pure_interface_test",
+    srcs = ["pure_interface_test.d"],
+    deps = [":pure_interface_lib"],
+)
+
+# Test 3: Library with exports attribute
 d_library(
     name = "partial_export_lib",
     srcs = [
