@@ -60,15 +60,9 @@ filegroup(
     data = [":dmd"],
 )
 
-filegroup(
-    name = "llc",
-    srcs = ["bin/llc"],
-)
-
 d_toolchain_config(
     name = "ldc_config",
     d_compiler = ":dmd",
-    llc_compiler = ":llc",
     druntime = ":druntime",
     dub_tool = ":dub",
     libphobos = ":libphobos",

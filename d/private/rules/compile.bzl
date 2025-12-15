@@ -302,8 +302,6 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
         if compile_via_bc:
             if not toolchain.output_bc_flags:
                 fail("Bitcode compilation requested but toolchain.output_bc_flags not set")
-            if not toolchain.llc_compiler:
-                fail("Bitcode compilation requested but toolchain.llc_compiler not set")
             # Add bitcode flags
             if toolchain.output_bc_flags:
                 args.add_all(toolchain.output_bc_flags)

@@ -33,14 +33,26 @@ def compile_bitcode_to_native(ctx, toolchain, bc_objs, qualified_object_file_nam
         llc_args.add(bc_obj)
         llc_args.add("-o", native_obj)
 
-        ctx.actions.run(
-            inputs = [bc_obj],
-            outputs = [native_obj],
-            executable = toolchain.llc_compiler[DefaultInfo].files_to_run,
-            arguments = [llc_args],
-            mnemonic = "LLCcompile",
-            progress_message = "Compiling bitcode to native %s" % obj_name,
-        )
+        # Use toolchain llc_compiler if available, otherwise system llc
+        if toolchain.llc_compiler:
+            ctx.actions.run(
+                inputs = [bc_obj],
+                outputs = [native_obj],
+                executable = toolchain.llc_compiler[DefaultInfo].files_to_run,
+                arguments = [llc_args],
+                mnemonic = "LLCcompile",
+                progress_message = "Compiling bitcode to native %s" % obj_name,
+            )
+        else:
+            ctx.actions.run_shell(
+                inputs = [bc_obj],
+                outputs = [native_obj],
+                arguments = [llc_args],
+                command = "llc \"$@\"",
+                use_default_shell_env = True,
+                mnemonic = "LLCcompile",
+                progress_message = "Compiling bitcode to native %s" % obj_name,
+            )
 
     return native_objs
 
