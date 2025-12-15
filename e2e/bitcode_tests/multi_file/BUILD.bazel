@@ -1,0 +1,108 @@
+load("@rules_d//d:defs.bzl", "d_binary", "d_library", "d_test")
+
+# Multi-file library sources
+MULTI_FILE_SRCS = [
+    "math_add.d",
+    "math_sub.d",
+    "math_mul.d",
+    "math_div.d",
+    "math_utils.d",
+]
+
+# Test 1: Bitcode compilation with single_object="off" (multi-object mode)
+d_library(
+    name = "math_lib_bc_multi_obj",
+    srcs = MULTI_FILE_SRCS,
+    compile_via_bc = "on",
+    single_object = "off",
+)
+
+d_test(
+    name = "multi_file_bc_multi_obj_test",
+    srcs = ["multi_file_test.d"],
+    deps = [":math_lib_bc_multi_obj"],
+)
+
+d_binary(
+    name = "multi_file_bc_multi_obj_bin",
+    srcs = ["multi_file_test.d"],
+    deps = [":math_lib_bc_multi_obj"],
+)
+
+# Test 2: Bitcode compilation with single_object="on" (single-object mode)
+d_library(
+    name = "math_lib_bc_single_obj",
+    srcs = MULTI_FILE_SRCS,
+    compile_via_bc = "on",
+    single_object = "on",
+)
+
+d_test(
+    name = "multi_file_bc_single_obj_test",
+    srcs = ["multi_file_test.d"],
+    deps = [":math_lib_bc_single_obj"],
+)
+
+d_binary(
+    name = "multi_file_bc_single_obj_bin",
+    srcs = ["multi_file_test.d"],
+    deps = [":math_lib_bc_single_obj"],
+)
+
+# Test 3: Bitcode with qualified object names and single_object="off"
+d_library(
+    name = "math_lib_bc_qualified_multi_obj",
+    srcs = MULTI_FILE_SRCS,
+    compile_via_bc = "on",
+    single_object = "off",
+    qualified_object_file_names = "on",
+)
+
+d_test(
+    name = "multi_file_bc_qualified_multi_obj_test",
+    srcs = ["multi_file_test.d"],
+    deps = [":math_lib_bc_qualified_multi_obj"],
+)
+
+# Test 4: Bitcode with qualified object names and single_object="on"
+d_library(
+    name = "math_lib_bc_qualified_single_obj",
+    srcs = MULTI_FILE_SRCS,
+    compile_via_bc = "on",
+    single_object = "on",
+    qualified_object_file_names = "on",
+)
+
+d_test(
+    name = "multi_file_bc_qualified_single_obj_test",
+    srcs = ["multi_file_test.d"],
+    deps = [":math_lib_bc_qualified_single_obj"],
+)
+
+# Test 5: Non-bitcode compilation with single_object="off" (for comparison)
+d_library(
+    name = "math_lib_normal_multi_obj",
+    srcs = MULTI_FILE_SRCS,
+    compile_via_bc = "off",
+    single_object = "off",
+)
+
+d_test(
+    name = "multi_file_normal_multi_obj_test",
+    srcs = ["multi_file_test.d"],
+    deps = [":math_lib_normal_multi_obj"],
+)
+
+# Test 6: Non-bitcode compilation with single_object="on" (for comparison)
+d_library(
+    name = "math_lib_normal_single_obj",
+    srcs = MULTI_FILE_SRCS,
+    compile_via_bc = "off",
+    single_object = "on",
+)
+
+d_test(
+    name = "multi_file_normal_single_obj_test",
+    srcs = ["multi_file_test.d"],
+    deps = [":math_lib_normal_single_obj"],
+)
