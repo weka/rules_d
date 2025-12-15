@@ -83,3 +83,40 @@ def resolve_tristate_flag(attr_value, toolchain_default):
         return False
     else:  # "auto"
         return toolchain_default
+
+def compute_object_file_names(ctx, srcs, qualified):
+    """Computes expected object file names from D source files.
+
+    When --oq is used, LDC creates qualified object names by replacing
+    / with . in the package path: foo/bar/baz.d -> foo.bar.baz.o
+
+    Args:
+        ctx: The rule context
+        srcs: List of source Files
+        qualified: Boolean, whether --oq flag is enabled
+
+    Returns:
+        Dictionary mapping source File to expected object file basename
+    """
+    os = get_os(ctx)
+    obj_ext = ".o" if os in ["linux", "macos"] else ".obj"
+
+    result = {}
+    for src in srcs:
+        basename = src.basename
+        if basename.endswith(".d"):
+            basename = basename[:-2]
+        elif basename.endswith(".di"):
+            basename = basename[:-3]
+
+        if qualified and src.owner.package:
+            # Qualified: package/path/file.d -> package.path.file.o
+            pkg_path = src.owner.package.replace("/", ".")
+            obj_name = pkg_path + "." + basename + obj_ext
+        else:
+            # Simple: just basename.o
+            obj_name = basename + obj_ext
+
+        result[src] = obj_name
+
+    return result

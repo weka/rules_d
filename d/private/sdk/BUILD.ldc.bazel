@@ -60,9 +60,15 @@ filegroup(
     data = [":dmd"],
 )
 
+filegroup(
+    name = "llc",
+    srcs = ["bin/llc"],
+)
+
 d_toolchain_config(
     name = "ldc_config",
     d_compiler = ":dmd",
+    llc_compiler = ":llc",
     druntime = ":druntime",
     dub_tool = ":dub",
     libphobos = ":libphobos",
@@ -76,8 +82,9 @@ d_toolchain_config(
     single_obj_flag = "--singleobj",
     import_flags = ["-I"],
     version_flag = "-d-version=",
-    # LDC supports bitcode
-    output_bc_flags = ["-output-bc"],
+    # LDC supports bitcode with LTO
+    output_bc_flags = ["-flto=full"],
+    qualified_object_file_names = False,
     single_object = True,
     compile_via_bc = False,
     fat_lto = False,

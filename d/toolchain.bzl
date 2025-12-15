@@ -18,6 +18,7 @@ DToolchainInfo = provider(
         # New configuration fields
         "c_compiler": "The C compiler (for linking).",
         "llc_compiler": "The LLC compiler (for bitcode).",
+        "ar_tool": "The ar archiver tool (for bitcode).",
         "compiler_flags_per_mode": "Compilation flags per mode (dict: mode -> list).",
         "linker_flags_per_mode": "Linker flags per mode (dict: mode -> list).",
         "codegen_opts_common": "Common code generation flags for LLC (list).",
@@ -30,6 +31,7 @@ DToolchainInfo = provider(
         "version_flag": "Flag prefix for version identifiers (string).",
         "hdrgen_flags": "Flags for header generation (list).",
         "output_bc_flags": "Flags for bitcode output (list).",
+        "qualified_object_file_names": "Enable qualified object file names with --oq (bool).",
         "debug_repo_root_override": "Override for debug symbol paths (string).",
         "single_object": "Default for single object mode (bool).",
         "compile_via_bc": "Default for bitcode compilation (bool).",
@@ -87,6 +89,7 @@ def _d_toolchain_impl(ctx):
             # New configuration fields
             c_compiler = config.c_compiler,
             llc_compiler = config.llc_compiler,
+            ar_tool = config.ar_tool,
             compiler_flags_per_mode = _expand_toolchain_variables_in_flags_per_mode(ctx, config.compiler_flags_per_mode, config),
             linker_flags_per_mode = _expand_toolchain_variables_in_flags_per_mode(ctx, config.linker_flags_per_mode, config),
             codegen_opts_common = _expand_toolchain_variables_in_flags(ctx, config.codegen_opts_common, config),
@@ -99,6 +102,7 @@ def _d_toolchain_impl(ctx):
             version_flag = config.version_flag,
             hdrgen_flags = config.hdrgen_flags,
             output_bc_flags = config.output_bc_flags,
+            qualified_object_file_names = config.qualified_object_file_names,
             debug_repo_root_override = config.debug_repo_root_override,
             single_object = config.single_object,
             compile_via_bc = config.compile_via_bc,
@@ -155,6 +159,7 @@ def _d_toolchain_impl(ctx):
             # Provide default values for new fields
             c_compiler = None,
             llc_compiler = None,
+            ar_tool = None,
             compiler_flags_per_mode = {},
             linker_flags_per_mode = {},
             codegen_opts_common = [],
@@ -167,6 +172,7 @@ def _d_toolchain_impl(ctx):
             version_flag = "-version=",
             hdrgen_flags = [],
             output_bc_flags = [],
+            qualified_object_file_names = False,
             debug_repo_root_override = "",
             single_object = True,
             compile_via_bc = False,

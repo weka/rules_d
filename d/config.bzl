@@ -17,6 +17,7 @@ DToolchainConfigInfo = provider(
         "d_compiler": "Path to D compiler executable",
         "c_compiler": "Path to C compiler (for linking), optional",
         "llc_compiler": "Path to LLC compiler (for bitcode compilation), optional",
+        "ar_tool": "Path to ar archiver tool (for bitcode workflow), optional",
 
         # Tools
         "dub_tool": "The dub package manager executable, optional",
@@ -44,7 +45,8 @@ DToolchainConfigInfo = provider(
         "import_flags": "Flags for import paths (list)",
         "version_flag": "Flag prefix for version identifiers (string)",
         "hdrgen_flags": "Flags for header generation (list)",
-        "output_bc_flags": "Flags for bitcode output (list)",
+        "output_bc_flags": "Flags for bitcode output with LTO (list, e.g., ['-flto=full'])",
+        "qualified_object_file_names": "Enable qualified object file names with --oq (bool)",
 
         # Debug settings
         "debug_repo_root_override": "Override for debug symbol paths (string)",
@@ -98,6 +100,7 @@ def _d_toolchain_config_impl(ctx):
             d_compiler = ctx.attr.d_compiler,
             c_compiler = ctx.attr.c_compiler,
             llc_compiler = ctx.attr.llc_compiler,
+            ar_tool = ctx.attr.ar_tool,
             dub_tool = ctx.attr.dub_tool,
             rdmd_tool = ctx.attr.rdmd_tool,
             libphobos = ctx.attr.libphobos,
@@ -116,6 +119,7 @@ def _d_toolchain_config_impl(ctx):
             version_flag = ctx.attr.version_flag,
             hdrgen_flags = ctx.attr.hdrgen_flags,
             output_bc_flags = ctx.attr.output_bc_flags,
+            qualified_object_file_names = ctx.attr.qualified_object_file_names,
             debug_repo_root_override = ctx.attr.debug_repo_root_override,
             single_object = ctx.attr.single_object,
             compile_via_bc = ctx.attr.compile_via_bc,
@@ -156,6 +160,11 @@ d_toolchain_config = rule(
         ),
         "llc_compiler": attr.label(
             doc = "LLC compiler for bitcode compilation (optional)",
+            executable = True,
+            cfg = "exec",
+        ),
+        "ar_tool": attr.label(
+            doc = "The ar archiver tool for bitcode compilation (optional)",
             executable = True,
             cfg = "exec",
         ),
@@ -277,7 +286,11 @@ d_toolchain_config = rule(
         ),
         "output_bc_flags": attr.string_list(
             default = [],
-            doc = "Flags for bitcode output (LDC only)",
+            doc = "Flags for bitcode output with LTO (LDC only, e.g., ['-flto=full'])",
+        ),
+        "qualified_object_file_names": attr.bool(
+            default = False,
+            doc = "Enable qualified object file names (--oq flag for LDC)",
         ),
 
         # Debug settings

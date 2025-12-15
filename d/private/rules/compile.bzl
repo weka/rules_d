@@ -73,6 +73,15 @@ library_attrs = dicts.add(
             values = ["auto", "on", "off"],
             doc = "Controls bitcode compilation (requires single_object).",
         ),
+        "qualified_object_file_names": attr.string(
+            default = "auto",
+            values = ["auto", "on", "off"],
+            doc = """Controls object file naming in archives:
+                - "auto": Use toolchain default
+                - "on": Use qualified names (package.path.basename.o)
+                - "off": Use basename only (basename.o)
+            """,
+        ),
     },
 )
 
