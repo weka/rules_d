@@ -4,6 +4,14 @@
 
 https://registry.bazel.build/docs/rules_d
 
+## Features
+
+- **Bitcode Compilation with LTO**: Compile D libraries to LLVM bitcode for link-time optimization. See [docs/bitcode_compilation.md](docs/bitcode_compilation.md) for details.
+- **Flexible Toolchain Configuration**: Support for different D compilers (DMD, LDC, GDC)
+- **Dependency Management**: Seamless integration with C/C++ libraries
+- **Interface Files**: Support for D header/interface files (.di)
+- **Version Identifiers**: Conditional compilation with version identifiers
+
 ## Installation
 
 From the release you wish to use:
