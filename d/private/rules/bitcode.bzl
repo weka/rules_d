@@ -28,8 +28,8 @@ def compile_bitcode_to_native(ctx, toolchain, bc_objs, qualified_object_file_nam
         # Compile bitcode to native with llc
         llc_args = ctx.actions.args()
         llc_args.add("--filetype=obj")
-        if toolchain.codegen_flags:
-            llc_args.add_all(toolchain.codegen_flags)
+        if toolchain.codegen_opts_common:
+            llc_args.add_all(toolchain.codegen_opts_common)
         llc_args.add(bc_obj)
         llc_args.add("-o", native_obj)
 

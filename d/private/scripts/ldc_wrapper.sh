@@ -38,6 +38,11 @@ if [ -n "$BC_UNPACK_DIR" ]; then
         exit 1
     fi
 
+    # Convert to absolute path before changing directory
+    if [[ "$OUTPUT_FILE" != /* ]]; then
+        OUTPUT_FILE="$PWD/$OUTPUT_FILE"
+    fi
+
     # Unpack bitcode archive to output directory
     mkdir -p "$BC_UNPACK_DIR"
     cd "$BC_UNPACK_DIR"

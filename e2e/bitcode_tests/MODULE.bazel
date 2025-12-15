@@ -1,0 +1,10 @@
+module(
+    name = "bitcode_tests",
+    version = "0.0.0",
+)
+
+bazel_dep(name = "rules_d", version = "")
+local_path_override(
+    module_name = "rules_d",
+    path = "../..",
+)

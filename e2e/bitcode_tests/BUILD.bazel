@@ -1,0 +1,47 @@
+load("@rules_d//d:defs.bzl", "d_binary", "d_library", "d_test")
+
+# Test 1: Basic bitcode compilation
+d_library(
+    name = "simple_lib_bc",
+    srcs = ["simple_lib.d"],
+    compile_via_bc = "on",
+)
+
+d_binary(
+    name = "simple_test_bc",
+    srcs = ["simple_test.d"],
+    deps = [":simple_lib_bc"],
+)
+
+d_test(
+    name = "simple_bc_test",
+    srcs = ["simple_test.d"],
+    deps = [":simple_lib_bc"],
+)
+
+# Test 2: Bitcode with qualified object names
+d_library(
+    name = "simple_lib_bc_qualified",
+    srcs = ["simple_lib.d"],
+    compile_via_bc = "on",
+    qualified_object_file_names = "on",
+)
+
+d_test(
+    name = "qualified_bc_test",
+    srcs = ["simple_test.d"],
+    deps = [":simple_lib_bc_qualified"],
+)
+
+# Test 3: Non-bitcode library (for comparison)
+d_library(
+    name = "simple_lib_normal",
+    srcs = ["simple_lib.d"],
+    compile_via_bc = "off",
+)
+
+d_test(
+    name = "normal_test",
+    srcs = ["simple_test.d"],
+    deps = [":simple_lib_normal"],
+)

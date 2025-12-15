@@ -319,7 +319,6 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
         library_to_link = None
         compile_via_bc = False
         qualified_object_file_names = False
-    args.add(output, format = "-of=%s")
 
     # Unified compilation using ldc_wrapper.sh
     wrapper_script = ctx.attr._ldc_wrapper_script[DefaultInfo].files.to_list()[0]
@@ -340,7 +339,13 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
 
     # Declare bitcode object files if compiling via bitcode
     bc_objs = []
+    bc_archive = None
+    compile_output = output  # By default, compile directly to output
     if target_type == TARGET_TYPE.LIBRARY and compile_via_bc:
+        # For bitcode compilation, use intermediate bitcode archive
+        bc_archive = ctx.actions.declare_file(ctx.label.name + ".bc.a")
+        compile_output = bc_archive
+
         # Compute and declare individual bitcode object files
         obj_names = compute_object_file_names(ctx, ctx.files.srcs, qualified_object_file_names)
         for src, obj_name in obj_names.items():
@@ -358,7 +363,8 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
             env["AR_CMD"] = "ar"
 
     # Stage 1: Compile (and optionally unpack if bitcode)
-    outputs = [output] + bc_objs
+    args.add(compile_output, format = "-of=%s")
+    outputs = [compile_output] + bc_objs
     tools = [toolchain.d_compiler[DefaultInfo].files_to_run]
     # Add ar_tool to tools if using it for unpacking
     if target_type == TARGET_TYPE.LIBRARY and compile_via_bc and toolchain.ar_tool:
