@@ -5,7 +5,8 @@ load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@rules_cc//cc:defs.bzl", "cc_common")
 load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
 load("//d/private:providers.bzl", "DInfo")
-load("//d/private/rules:utils.bzl", "object_file_name", "resolve_tristate_flag", "static_library_name")
+load("//d/private/rules:bitcode.bzl", "compile_bitcode_to_native", "repack_native_objects")
+load("//d/private/rules:utils.bzl", "compute_object_file_names", "object_file_name", "resolve_tristate_flag", "static_library_name")
 
 D_FILE_EXTENSIONS = [".d", ".di"]
 
@@ -35,6 +36,11 @@ runnable_attrs = dicts.add(
         "_cc_toolchain": attr.label(
             default = "@rules_cc//cc:current_cc_toolchain",
             doc = "Default CC toolchain, used for linking. Remove after https://github.com/bazelbuild/bazel/issues/7260 is flipped (and support for old Bazel version is not needed)",
+        ),
+        "_ldc_wrapper_script": attr.label(
+            default = "//d/private/scripts:ldc_wrapper.sh",
+            allow_single_file = True,
+            doc = "LDC wrapper script for unified compilation",
         ),
     },
 )
@@ -81,6 +87,11 @@ library_attrs = dicts.add(
                 - "on": Use qualified names (package.path.basename.o)
                 - "off": Use basename only (basename.o)
             """,
+        ),
+        "_ldc_wrapper_script": attr.label(
+            default = "//d/private/scripts:ldc_wrapper.sh",
+            allow_single_file = True,
+            doc = "LDC wrapper script for unified compilation",
         ),
     },
 )
@@ -276,6 +287,27 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
                      "Use LDC toolchain or set single_object='off'.")
             args.add(toolchain.single_obj_flag)
 
+        # Resolve bitcode and qualified object file names flags
+        compile_via_bc = resolve_tristate_flag(ctx.attr.compile_via_bc, toolchain.compile_via_bc)
+        qualified_object_file_names = resolve_tristate_flag(
+            ctx.attr.qualified_object_file_names,
+            toolchain.qualified_object_file_names,
+        )
+
+        # Add --oq flag if qualified object file names are enabled
+        if qualified_object_file_names:
+            args.add("--oq")
+
+        # Validate bitcode requirements if enabled
+        if compile_via_bc:
+            if not toolchain.output_bc_flags:
+                fail("Bitcode compilation requested but toolchain.output_bc_flags not set")
+            if not toolchain.llc_compiler:
+                fail("Bitcode compilation requested but toolchain.llc_compiler not set")
+            # Add bitcode flags
+            if toolchain.output_bc_flags:
+                args.add_all(toolchain.output_bc_flags)
+
         output = ctx.actions.declare_file(static_library_name(ctx, ctx.label.name))
         library_to_link = None if ctx.attr.source_only else cc_common.create_library_to_link(
             actions = ctx.actions,
@@ -285,27 +317,72 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
         args.add("-c")
         output = ctx.actions.declare_file(object_file_name(ctx, ctx.label.name))
         library_to_link = None
+        compile_via_bc = False
+        qualified_object_file_names = False
     args.add(output, format = "-of=%s")
+
+    # Unified compilation using ldc_wrapper.sh
+    wrapper_script = ctx.attr._ldc_wrapper_script[DefaultInfo].files.to_list()[0]
 
     inputs = depset(
         direct = (ctx.files.srcs + ctx.files.string_srcs +
                   (ctx.files.data if hasattr(ctx.files, "data") else []) +
                   (ctx.files.hdrs if hasattr(ctx.files, "hdrs") else []) +
-                  (ctx.files.exports if hasattr(ctx.files, "exports") else [])),
+                  (ctx.files.exports if hasattr(ctx.files, "exports") else []) +
+                  [wrapper_script]),
         transitive = [toolchain.d_compiler[DefaultInfo].default_runfiles.files] +
                      [d.interface_srcs for d in all_d_deps],
     )
 
+    # Prepare environment variables for wrapper
+    env = dict(ctx.var)
+    env["LDC2_REAL"] = toolchain.d_compiler[DefaultInfo].files_to_run.executable.path
+
+    # Declare bitcode object files if compiling via bitcode
+    bc_objs = []
+    if target_type == TARGET_TYPE.LIBRARY and compile_via_bc:
+        # Compute and declare individual bitcode object files
+        obj_names = compute_object_file_names(ctx, ctx.files.srcs, qualified_object_file_names)
+        for src, obj_name in obj_names.items():
+            bc_obj = ctx.actions.declare_file(ctx.label.name + "_bc_objs/" + obj_name)
+            bc_objs.append(bc_obj)
+
+        # Set BC_UNPACK_DIR for wrapper to unpack archive
+        bc_unpack_dir = bc_objs[0].dirname if bc_objs else ""
+        env["BC_UNPACK_DIR"] = bc_unpack_dir
+
+        # Set AR_CMD: use toolchain ar_tool if available, otherwise system ar
+        if toolchain.ar_tool:
+            env["AR_CMD"] = toolchain.ar_tool[DefaultInfo].files_to_run.executable.path
+        else:
+            env["AR_CMD"] = "ar"
+
+    # Stage 1: Compile (and optionally unpack if bitcode)
+    outputs = [output] + bc_objs
+    tools = [toolchain.d_compiler[DefaultInfo].files_to_run]
+    # Add ar_tool to tools if using it for unpacking
+    if target_type == TARGET_TYPE.LIBRARY and compile_via_bc and toolchain.ar_tool:
+        tools.append(toolchain.ar_tool[DefaultInfo].files_to_run)
+
     ctx.actions.run(
         inputs = inputs,
-        outputs = [output],
-        executable = toolchain.d_compiler[DefaultInfo].files_to_run,
+        outputs = outputs,
+        executable = wrapper_script,
         arguments = [args],
-        env = ctx.var,
+        tools = tools,
+        env = env,
         use_default_shell_env = False,
         mnemonic = "Dcompile",
         progress_message = "Compiling D %s %s" % (target_type, ctx.label.name),
     )
+
+    # Stage 2 & 3: Bitcode to native compilation and repacking (if bitcode enabled)
+    if target_type == TARGET_TYPE.LIBRARY and compile_via_bc:
+        # Stage 2: Compile bitcode objects to native
+        native_objs = compile_bitcode_to_native(ctx, toolchain, bc_objs, qualified_object_file_names)
+
+        # Stage 3: Repack native objects into final archive
+        repack_native_objects(ctx, toolchain, native_objs, output)
     linker_input = cc_common.create_linker_input(
         owner = ctx.label,
         libraries = depset(direct = [library_to_link] if library_to_link else None),
@@ -361,6 +438,12 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
             direct_interface_srcs if target_type == TARGET_TYPE.LIBRARY else [],
             transitive = [d.d_exports for d in d_deps if hasattr(d, "d_exports")],  # Only regular deps
         ),
-        libs_bc = depset(),  # Populated in sub-phase 5
-        libs_non_bc = depset(),  # Populated in sub-phase 5
+        libs_bc = depset(
+            direct = [output] if (target_type == TARGET_TYPE.LIBRARY and compile_via_bc and not ctx.attr.source_only) else [],
+            transitive = [d.libs_bc for d in d_deps if hasattr(d, "libs_bc")],
+        ),
+        libs_non_bc = depset(
+            direct = [output] if (target_type == TARGET_TYPE.LIBRARY and not compile_via_bc and not ctx.attr.source_only) else [],
+            transitive = [d.libs_non_bc for d in d_deps if hasattr(d, "libs_non_bc")],
+        ),
     )
