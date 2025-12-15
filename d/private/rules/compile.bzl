@@ -133,7 +133,9 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
         ctx.attr.dopts,
         transitive = [d.compiler_flags for d in all_d_deps],
     )
+    pkg_path = paths.join(ctx.label.workspace_root, ctx.label.package)
     imports = depset(
+        ([pkg_path] if pkg_path else []) +
         [paths.join(ctx.label.workspace_root, ctx.label.package, imp) for imp in ctx.attr.imports],
         transitive = [d.imports for d in all_d_deps],
     )
@@ -142,7 +144,7 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
         transitive = [d.linker_flags for d in all_d_deps],
     )
     string_imports = depset(
-        ([paths.join(ctx.label.workspace_root, ctx.label.package)] if ctx.files.string_srcs else []) +
+        ([pkg_path] if pkg_path and ctx.files.string_srcs else []) +
         [paths.join(ctx.label.workspace_root, ctx.label.package, imp) for imp in ctx.attr.string_imports],
         transitive = [d.string_imports for d in all_d_deps],
     )
@@ -200,6 +202,7 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
     # Skip compilation if no sources (header-only or deps-only library)
     if not has_srcs and target_type == TARGET_TYPE.LIBRARY:
         # Return DInfo without compilation
+        pkg_path = paths.join(ctx.label.workspace_root, ctx.label.package)
         return DInfo(
             compilation_output = None,
             compiler_flags = depset(
@@ -207,7 +210,7 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
                 transitive = [d.compiler_flags for d in d_deps],
             ),
             imports = depset(
-                [paths.join(ctx.label.workspace_root, ctx.label.package)] +
+                ([pkg_path] if pkg_path else []) +
                 [paths.join(ctx.label.workspace_root, ctx.label.package, imp) for imp in ctx.attr.imports],
                 transitive = [d.imports for d in d_deps],
             ),
@@ -226,7 +229,7 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
             ),
             source_only = ctx.attr.source_only if hasattr(ctx.attr, "source_only") else False,
             string_imports = depset(
-                ([paths.join(ctx.label.workspace_root, ctx.label.package)] if ctx.files.string_srcs else []) +
+                ([pkg_path] if pkg_path and ctx.files.string_srcs else []) +
                 [paths.join(ctx.label.workspace_root, ctx.label.package, imp) for imp in ctx.attr.string_imports],
                 transitive = [d.string_imports for d in d_deps],
             ),
@@ -401,6 +404,7 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
         ),
     )
     # For DInfo propagation: use only regular deps (not implementation deps)
+    pkg_path = paths.join(ctx.label.workspace_root, ctx.label.package)
     return DInfo(
         compilation_output = output,
         compiler_flags = depset(
@@ -408,7 +412,7 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
             transitive = [d.compiler_flags for d in d_deps],  # Only regular deps
         ),
         imports = depset(
-            [paths.join(ctx.label.workspace_root, ctx.label.package)] +
+            ([pkg_path] if pkg_path else []) +
             [paths.join(ctx.label.workspace_root, ctx.label.package, imp) for imp in ctx.attr.imports],
             transitive = [d.imports for d in d_deps],  # Only regular deps
         ),
@@ -423,7 +427,7 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
         ),
         source_only = ctx.attr.source_only if target_type == TARGET_TYPE.LIBRARY else False,
         string_imports = depset(
-            ([paths.join(ctx.label.workspace_root, ctx.label.package)] if ctx.files.string_srcs else []) +
+            ([pkg_path] if pkg_path and ctx.files.string_srcs else []) +
             [paths.join(ctx.label.workspace_root, ctx.label.package, imp) for imp in ctx.attr.string_imports],
             transitive = [d.string_imports for d in d_deps],  # Only regular deps
         ),
