@@ -41,7 +41,7 @@ cc_import(
 
 filegroup(
     name = "dmd",
-    srcs = ["bin/ldmd2"],
+    srcs = ["bin/ldc2"],
     data = [
         ":druntime_files",
         ":phobos_files",
@@ -68,7 +68,7 @@ d_toolchain_config(
     libphobos = ":libphobos",
     linker_flags = [],
     rdmd_tool = ":rdmd",
-    # LDC-specific flags (this is actually LDC, not DMD, based on ldmd2 binary)
+    # LDC-specific flags (using ldc2 directly)
     compiler_flags = ["-w"],  # Enable warnings
     compiler_flags_dbg = ["-g", "-d-debug", "-d-version=debug_assert"],
     compiler_flags_opt = ["-O3", "-release"],
