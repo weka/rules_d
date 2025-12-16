@@ -1,0 +1,18 @@
+load("@rules_d//d:defs.bzl", "d_library", "d_test")
+
+# Test: project_root pointing to a subdirectory
+# Sources in src/ have module names relative to src/ (just "calculator")
+# Using project_root="./src" makes this work with qualified object names
+d_library(
+    name = "calculator_lib",
+    srcs = ["src/calculator.d"],
+    compile_via_bc = "on",
+    qualified_object_file_names = "on",
+    project_root = "./src",
+)
+
+d_test(
+    name = "subdir_test",
+    srcs = ["test_calculator.d"],
+    deps = [":calculator_lib"],
+)

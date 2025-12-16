@@ -1,0 +1,18 @@
+load("@rules_d//d:defs.bzl", "d_library", "d_binary")
+
+# Test: d_binary with custom project_root
+# Verifies that binary targets work correctly with package-relative module names
+d_library(
+    name = "lib",
+    srcs = ["lib.d"],
+    compile_via_bc = "on",
+    qualified_object_file_names = "on",
+    project_root = ".",
+)
+
+d_binary(
+    name = "app",
+    srcs = ["main.d"],
+    project_root = ".",
+    deps = [":lib"],
+)

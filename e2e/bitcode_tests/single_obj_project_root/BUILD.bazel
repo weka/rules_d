@@ -1,0 +1,20 @@
+load("@rules_d//d:defs.bzl", "d_library", "d_test")
+
+# Test: single_object mode with custom project_root
+# Verifies that bitcode single-object compilation works with package-relative module names
+d_library(
+    name = "single_obj_lib",
+    srcs = [
+        "math.d",
+        "string_utils.d",
+    ],
+    compile_via_bc = "on",
+    single_object = "on",
+    project_root = ".",
+)
+
+d_test(
+    name = "single_obj_test",
+    srcs = ["test_main.d"],
+    deps = [":single_obj_lib"],
+)

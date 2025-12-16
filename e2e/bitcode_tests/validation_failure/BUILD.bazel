@@ -1,0 +1,17 @@
+load("@rules_d//d:defs.bzl", "d_library")
+
+# This should succeed - source is under project_root
+d_library(
+    name = "good_lib",
+    srcs = ["src/good.d"],
+    project_root = "./src",
+)
+
+# This should FAIL - source is outside project_root
+# Tagged as manual so it doesn't break the build
+d_library(
+    name = "bad_lib_should_fail",
+    srcs = ["other/bad.d"],
+    project_root = "./src",
+    tags = ["manual"],
+)
