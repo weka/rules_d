@@ -69,7 +69,11 @@ d_toolchain_config(
     linker_flags = [],
     rdmd_tool = ":rdmd",
     # LDC-specific flags (using ldc2 directly)
-    compiler_flags = ["-w"],  # Enable warnings
+    compiler_flags = [
+        "-w",  # Enable warnings
+        "--relocation-model=pic"
+    ],
+    codegen_opts_common = ["--relocation-model=pic"],
     compiler_flags_dbg = ["-g", "-d-debug", "-d-version=debug_assert"],
     compiler_flags_opt = ["-O3", "-release"],
     lib_flags = ["-lib"],
