@@ -1,0 +1,12 @@
+load("@rules_d//d:defs.bzl", "d_library")
+
+# Library with package-relative module names using project_root="."
+# This simulates an external library that doesn't follow repo-relative naming
+d_library(
+    name = "utils_lib",
+    srcs = ["utils.d"],
+    compile_via_bc = "on",
+    qualified_object_file_names = "on",
+    project_root = ".",
+    visibility = ["//visibility:public"],
+)

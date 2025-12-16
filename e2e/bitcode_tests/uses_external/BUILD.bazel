@@ -1,0 +1,9 @@
+load("@rules_d//d:defs.bzl", "d_test")
+
+# Test that verifies imports work correctly when depending on a library
+# that uses project_root="." (package-relative module names)
+d_test(
+    name = "cross_package_import_test",
+    srcs = ["main.d"],
+    deps = ["//external_lib:utils_lib"],
+)
