@@ -5,7 +5,7 @@ load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@rules_cc//cc:defs.bzl", "cc_common")
 load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
 load("//d/private:providers.bzl", "DInfo")
-load("//d/private/rules:bitcode.bzl", "compile_bitcode_to_native", "repack_native_objects")
+load("//d/private/rules:bitcode.bzl", "compile_bitcode_single_action", "compile_bitcode_to_native", "repack_native_objects")
 load("//d/private/rules:utils.bzl", "compute_object_file_names", "object_file_name", "resolve_tristate_flag", "static_library_name")
 
 D_FILE_EXTENSIONS = [".d", ".di"]
@@ -41,6 +41,11 @@ runnable_attrs = dicts.add(
             default = "//d/private/scripts:ldc_wrapper.sh",
             allow_single_file = True,
             doc = "LDC wrapper script for unified compilation",
+        ),
+        "_llc_archive_compiler": attr.label(
+            default = "//d/private/scripts:llc_archive_compiler.sh",
+            allow_single_file = True,
+            doc = "LLC archive compiler script for single-action bitcode compilation",
         ),
     },
 )
@@ -92,6 +97,11 @@ library_attrs = dicts.add(
             default = "//d/private/scripts:ldc_wrapper.sh",
             allow_single_file = True,
             doc = "LDC wrapper script for unified compilation",
+        ),
+        "_llc_archive_compiler": attr.label(
+            default = "//d/private/scripts:llc_archive_compiler.sh",
+            allow_single_file = True,
+            doc = "LLC archive compiler script for single-action bitcode compilation",
         ),
     },
 )
@@ -347,15 +357,22 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
         bc_archive = ctx.actions.declare_file(ctx.label.name + ".bc.a")
         compile_output = bc_archive
 
-        # Compute and declare individual bitcode object files
-        obj_names = compute_object_file_names(ctx, ctx.files.srcs, qualified_object_file_names)
-        for src, obj_name in obj_names.items():
-            bc_obj = ctx.actions.declare_file(ctx.label.name + "_bc_objs/" + obj_name)
-            bc_objs.append(bc_obj)
+        # Detect single-action mode: single_object or only one source file
+        use_single_action = single_object or len(ctx.files.srcs) == 1
 
-        # Set BC_UNPACK_DIR for wrapper to unpack archive
-        bc_unpack_dir = bc_objs[0].dirname if bc_objs else ""
-        env["BC_UNPACK_DIR"] = bc_unpack_dir
+        if use_single_action:
+            # Single-action mode: don't unpack, llc_archive_compiler will handle it
+            env["LDC_SKIP_UNPACK"] = "1"
+        else:
+            # Parallel mode: compute and declare individual bitcode object files
+            obj_names = compute_object_file_names(ctx, ctx.files.srcs, qualified_object_file_names)
+            for src, obj_name in obj_names.items():
+                bc_obj = ctx.actions.declare_file(ctx.label.name + "_bc_objs/" + obj_name)
+                bc_objs.append(bc_obj)
+
+            # Set BC_UNPACK_DIR for wrapper to unpack archive
+            bc_unpack_dir = bc_objs[0].dirname if bc_objs else ""
+            env["BC_UNPACK_DIR"] = bc_unpack_dir
 
         # Set AR_CMD: use toolchain ar_tool if available, otherwise system ar
         if toolchain.ar_tool:
@@ -385,11 +402,19 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
 
     # Stage 2 & 3: Bitcode to native compilation and repacking (if bitcode enabled)
     if target_type == TARGET_TYPE.LIBRARY and compile_via_bc:
-        # Stage 2: Compile bitcode objects to native
-        native_objs = compile_bitcode_to_native(ctx, toolchain, bc_objs, qualified_object_file_names)
+        # Detect single-action mode (same check as above)
+        use_single_action = single_object or len(ctx.files.srcs) == 1
 
-        # Stage 3: Repack native objects into final archive
-        repack_native_objects(ctx, toolchain, native_objs, output)
+        if use_single_action:
+            # Single-action mode: unpack/compile/pack in one step
+            compile_bitcode_single_action(ctx, toolchain, bc_archive, output)
+        else:
+            # Parallel mode: Stage 2 - Compile bitcode objects to native
+            native_objs = compile_bitcode_to_native(ctx, toolchain, bc_archive, bc_objs, single_object, qualified_object_file_names)
+
+            # Stage 3: Repack native objects into final archive (only if not single-action)
+            if native_objs:
+                repack_native_objects(ctx, toolchain, native_objs, output)
     linker_input = cc_common.create_linker_input(
         owner = ctx.label,
         libraries = depset(direct = [library_to_link] if library_to_link else None),

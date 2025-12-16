@@ -3,10 +3,12 @@
 # Optionally compiles to bitcode archive and unpacks it to a directory
 #
 # Environment variables:
-#   LDC2_REAL      - Path to the real ldc2 compiler (required)
-#   BC_UNPACK_DIR  - Directory to unpack bitcode objects (optional)
-#                    If not set, just compiles normally without unpacking
-#   AR_CMD         - ar command to use (default: "ar")
+#   LDC2_REAL       - Path to the real ldc2 compiler (required)
+#   BC_UNPACK_DIR   - Directory to unpack bitcode objects (optional)
+#                     If not set, just compiles normally without unpacking
+#   LDC_SKIP_UNPACK - If set, skip unpacking even if BC_UNPACK_DIR is set
+#                     Used in single-action mode where llc_archive_compiler handles unpacking
+#   AR_CMD          - ar command to use (default: "ar")
 
 set -e -o pipefail
 
@@ -18,6 +20,11 @@ fi
 
 # Compile with real ldc2
 "$LDC2_REAL" "$@"
+
+# If LDC_SKIP_UNPACK is set, skip unpacking (for single-action mode)
+if [ -n "$LDC_SKIP_UNPACK" ]; then
+    exit 0
+fi
 
 # If BC_UNPACK_DIR is set, unpack the archive
 if [ -n "$BC_UNPACK_DIR" ]; then
