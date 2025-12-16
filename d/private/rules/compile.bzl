@@ -128,6 +128,10 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
     if ctx.files.srcs:
         validate_sources_under_project_root(ctx, ctx.files.srcs, project_root)
 
+    # Compute import base path for DInfo propagation
+    # When project_root is empty string, it means repository root
+    import_base_path = paths.join(ctx.label.workspace_root, project_root) if project_root else ctx.label.workspace_root
+
     # Regular dependencies (propagated to consumers)
     c_deps = [d[CcInfo] for d in ctx.attr.deps if CcInfo in d]
     d_deps = [d[DInfo] for d in ctx.attr.deps if DInfo in d]
@@ -150,9 +154,6 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
     )
     # Use project_root for imports instead of package path
     pkg_path = paths.join(ctx.label.workspace_root, ctx.label.package)
-    # When project_root is empty string, it means repository root
-    # project_root is either "" (repo root) or a non-empty path
-    import_base_path = paths.join(ctx.label.workspace_root, project_root) if project_root else ctx.label.workspace_root
     imports = depset(
         ([import_base_path] if import_base_path else []) +
         [paths.join(ctx.label.workspace_root, ctx.label.package, imp) for imp in ctx.attr.imports],
@@ -221,7 +222,6 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
     # Skip compilation if no sources (header-only or deps-only library)
     if not has_srcs and target_type == TARGET_TYPE.LIBRARY:
         # Return DInfo without compilation
-        pkg_path = paths.join(ctx.label.workspace_root, ctx.label.package)
         return DInfo(
             compilation_output = None,
             compiler_flags = depset(
@@ -229,7 +229,7 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
                 transitive = [d.compiler_flags for d in d_deps],
             ),
             imports = depset(
-                ([pkg_path] if pkg_path else []) +
+                ([import_base_path] if import_base_path else []) +
                 [paths.join(ctx.label.workspace_root, ctx.label.package, imp) for imp in ctx.attr.imports],
                 transitive = [d.imports for d in d_deps],
             ),
@@ -248,7 +248,7 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
             ),
             source_only = ctx.attr.source_only if hasattr(ctx.attr, "source_only") else False,
             string_imports = depset(
-                ([pkg_path] if pkg_path and ctx.files.string_srcs else []) +
+                ([import_base_path] if import_base_path and ctx.files.string_srcs else []) +
                 [paths.join(ctx.label.workspace_root, ctx.label.package, imp) for imp in ctx.attr.string_imports],
                 transitive = [d.string_imports for d in d_deps],
             ),
@@ -457,7 +457,6 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
         ),
     )
     # For DInfo propagation: use only regular deps (not implementation deps)
-    pkg_path = paths.join(ctx.label.workspace_root, ctx.label.package)
     return DInfo(
         compilation_output = output,
         compiler_flags = depset(
@@ -465,7 +464,7 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
             transitive = [d.compiler_flags for d in d_deps],  # Only regular deps
         ),
         imports = depset(
-            ([pkg_path] if pkg_path else []) +
+            ([import_base_path] if import_base_path else []) +
             [paths.join(ctx.label.workspace_root, ctx.label.package, imp) for imp in ctx.attr.imports],
             transitive = [d.imports for d in d_deps],  # Only regular deps
         ),
@@ -480,7 +479,7 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
         ),
         source_only = ctx.attr.source_only if target_type == TARGET_TYPE.LIBRARY else False,
         string_imports = depset(
-            ([pkg_path] if pkg_path and ctx.files.string_srcs else []) +
+            ([import_base_path] if import_base_path and ctx.files.string_srcs else []) +
             [paths.join(ctx.label.workspace_root, ctx.label.package, imp) for imp in ctx.attr.string_imports],
             transitive = [d.string_imports for d in d_deps],  # Only regular deps
         ),
