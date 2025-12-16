@@ -1,8 +1,8 @@
-import multi_file.math_add;
-import multi_file.math_sub;
-import multi_file.math_mul;
-import multi_file.math_div;
-import multi_file.math_utils;
+import math_add;
+import math_sub;
+import math_mul;
+import math_div;
+import math_utils;
 import std.stdio;
 
 void main() {

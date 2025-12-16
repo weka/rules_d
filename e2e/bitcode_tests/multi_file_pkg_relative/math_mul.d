@@ -1,4 +1,4 @@
-module multi_file.math_mul;
+module math_mul;
 
 int multiply(int a, int b) {
     return a * b;

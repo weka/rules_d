@@ -2,7 +2,7 @@
 
 load("//d/private/rules:utils.bzl", "compute_object_file_names")
 
-def compile_bitcode_to_native(ctx, toolchain, bc_archive, bc_objs, single_object, qualified_object_file_names):
+def compile_bitcode_to_native(ctx, toolchain, bc_archive, bc_objs, single_object, qualified_object_file_names, project_root):
     """Stage 2: Compile bitcode objects to native objects with llc.
 
     Args:
@@ -12,6 +12,7 @@ def compile_bitcode_to_native(ctx, toolchain, bc_archive, bc_objs, single_object
         bc_objs: List of bitcode object Files (for parallel mode, may be empty)
         single_object: Boolean, whether single-object mode is enabled
         qualified_object_file_names: Boolean, whether qualified names are used
+        project_root: Project root path (from compute_project_root)
 
     Returns:
         List of native object Files (or single File for single-action archive mode)
@@ -25,7 +26,7 @@ def compile_bitcode_to_native(ctx, toolchain, bc_archive, bc_objs, single_object
         return None
     else:
         # Parallel mode: compile each bitcode object separately
-        return _compile_bitcode_parallel(ctx, toolchain, bc_objs, qualified_object_file_names)
+        return _compile_bitcode_parallel(ctx, toolchain, bc_objs, qualified_object_file_names, project_root)
 
 def compile_bitcode_single_action(ctx, toolchain, bc_obj, bc_archive, output):
     """Compile bitcode in a single action.
@@ -91,7 +92,7 @@ def compile_bitcode_single_action(ctx, toolchain, bc_obj, bc_archive, output):
         progress_message = "Compiling bitcode to native %s" % ctx.label.name,
     )
 
-def _compile_bitcode_parallel(ctx, toolchain, bc_objs, qualified_object_file_names):
+def _compile_bitcode_parallel(ctx, toolchain, bc_objs, qualified_object_file_names, project_root):
     """Compile bitcode objects in parallel (existing behavior).
 
     Args:
@@ -99,6 +100,7 @@ def _compile_bitcode_parallel(ctx, toolchain, bc_objs, qualified_object_file_nam
         toolchain: The D toolchain
         bc_objs: List of bitcode object Files
         qualified_object_file_names: Boolean, whether qualified names are used
+        project_root: Project root path (from compute_project_root)
 
     Returns:
         List of native object Files
@@ -106,7 +108,7 @@ def _compile_bitcode_parallel(ctx, toolchain, bc_objs, qualified_object_file_nam
     native_objs = []
 
     # Compute expected object file names from sources
-    obj_names = compute_object_file_names(ctx, ctx.files.srcs, qualified_object_file_names)
+    obj_names = compute_object_file_names(ctx, ctx.files.srcs, qualified_object_file_names, project_root)
 
     for src, obj_name in obj_names.items():
         # Declare corresponding bitcode and native object files

@@ -1,4 +1,4 @@
-module multi_file.math_sub;
+module math_sub;
 
 int subtract(int a, int b) {
     return a - b;

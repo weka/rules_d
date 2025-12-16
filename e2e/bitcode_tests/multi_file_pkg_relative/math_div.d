@@ -1,4 +1,4 @@
-module multi_file.math_div;
+module math_div;
 
 int divide(int a, int b) {
     return a / b;

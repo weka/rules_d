@@ -6,7 +6,7 @@ load("@rules_cc//cc:defs.bzl", "cc_common")
 load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
 load("//d/private:providers.bzl", "DInfo")
 load("//d/private/rules:bitcode.bzl", "compile_bitcode_single_action", "compile_bitcode_to_native", "repack_native_objects")
-load("//d/private/rules:utils.bzl", "compute_object_file_names", "object_file_name", "resolve_tristate_flag", "static_library_name")
+load("//d/private/rules:utils.bzl", "compute_object_file_names", "compute_project_root", "object_file_name", "resolve_tristate_flag", "static_library_name", "validate_sources_under_project_root")
 
 D_FILE_EXTENSIONS = [".d", ".di"]
 
@@ -27,6 +27,16 @@ common_attrs = {
         default = "auto",
         values = ["auto", "on", "off"],
         doc = "Enables staged compilation via bitcode.",
+    ),
+    "project_root": attr.string(
+        default = "",
+        doc = """Specifies where D module names are computed from.
+            - "" (default): Repository root. Module names are relative to repo root (recommended).
+            - ".": Current package directory. Module names are relative to the BUILD file location.
+            - "./subdir": Subdirectory within the package.
+            - "../..": Parent directories relative to the package.
+            - "some/path": Absolute path from repository root.
+        """,
     ),
     "_ldc_wrapper_script": attr.label(
         default = "//d/private/scripts:ldc_wrapper.sh",
@@ -113,6 +123,11 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
     """
     toolchain = ctx.toolchains["//d:toolchain_type"].d_toolchain_info
 
+    # Compute project root and validate sources
+    project_root = compute_project_root(ctx, ctx.attr.project_root)
+    if ctx.files.srcs:
+        validate_sources_under_project_root(ctx, ctx.files.srcs, project_root)
+
     # Regular dependencies (propagated to consumers)
     c_deps = [d[CcInfo] for d in ctx.attr.deps if CcInfo in d]
     d_deps = [d[DInfo] for d in ctx.attr.deps if DInfo in d]
@@ -133,9 +148,13 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
         ctx.attr.dopts,
         transitive = [d.compiler_flags for d in all_d_deps],
     )
+    # Use project_root for imports instead of package path
     pkg_path = paths.join(ctx.label.workspace_root, ctx.label.package)
+    # When project_root is empty string, it means repository root
+    # project_root is either "" (repo root) or a non-empty path
+    import_base_path = paths.join(ctx.label.workspace_root, project_root) if project_root else ctx.label.workspace_root
     imports = depset(
-        ([pkg_path] if pkg_path else []) +
+        ([import_base_path] if import_base_path else []) +
         [paths.join(ctx.label.workspace_root, ctx.label.package, imp) for imp in ctx.attr.imports],
         transitive = [d.imports for d in all_d_deps],
     )
@@ -369,7 +388,7 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
                 env["LDC_SKIP_UNPACK"] = "1"
             else:
                 # Parallel mode: compute and declare individual bitcode object files
-                obj_names = compute_object_file_names(ctx, ctx.files.srcs, qualified_object_file_names)
+                obj_names = compute_object_file_names(ctx, ctx.files.srcs, qualified_object_file_names, project_root)
                 for src, obj_name in obj_names.items():
                     bc_obj_file = ctx.actions.declare_file(ctx.label.name + "_bc_objs/" + obj_name)
                     bc_objs.append(bc_obj_file)
@@ -419,7 +438,7 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
             compile_bitcode_single_action(ctx, toolchain, bc_obj, bc_archive, output)
         else:
             # Parallel mode: Stage 2 - Compile bitcode objects to native
-            native_objs = compile_bitcode_to_native(ctx, toolchain, bc_archive, bc_objs, single_object, qualified_object_file_names)
+            native_objs = compile_bitcode_to_native(ctx, toolchain, bc_archive, bc_objs, single_object, qualified_object_file_names, project_root)
 
             # Stage 3: Repack native objects into final archive (only if not single-action)
             if native_objs:

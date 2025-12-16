@@ -1,0 +1,47 @@
+load("@rules_d//d:defs.bzl", "d_library", "d_test")
+
+# Multi-file library sources with package-relative module names
+# These files use simple module names like "math_add" instead of "multi_file_pkg_relative.math_add"
+MULTI_FILE_SRCS = [
+    "math_add.d",
+    "math_sub.d",
+    "math_mul.d",
+    "math_div.d",
+    "math_utils.d",
+]
+
+# Test: Bitcode with qualified object names and project_root="."
+# This demonstrates that project_root="." allows package-relative module names
+# to work with qualified object file names and bitcode compilation
+d_library(
+    name = "math_lib_bc_qualified_pkg_relative",
+    srcs = MULTI_FILE_SRCS,
+    compile_via_bc = "on",
+    single_object = "off",
+    qualified_object_file_names = "on",
+    project_root = ".",
+)
+
+d_test(
+    name = "pkg_relative_test",
+    srcs = ["multi_file_test.d"],
+    deps = [":math_lib_bc_qualified_pkg_relative"],
+)
+
+# Control test: Same but WITHOUT project_root - should fail
+# This demonstrates the problem we're solving
+d_library(
+    name = "math_lib_bc_qualified_pkg_relative_no_fix",
+    srcs = MULTI_FILE_SRCS,
+    compile_via_bc = "on",
+    single_object = "off",
+    qualified_object_file_names = "on",
+    tags = ["manual"],  # Don't build automatically - expected to fail
+)
+
+d_test(
+    name = "pkg_relative_test_no_fix",
+    srcs = ["multi_file_test.d"],
+    deps = [":math_lib_bc_qualified_pkg_relative_no_fix"],
+    tags = ["manual"],  # Don't run automatically - expected to fail
+)

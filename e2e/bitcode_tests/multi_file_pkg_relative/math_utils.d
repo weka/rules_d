@@ -1,7 +1,7 @@
-module multi_file.math_utils;
+module math_utils;
 
-import multi_file.math_add;
-import multi_file.math_mul;
+import math_add;
+import math_mul;
 
 int addAndMultiply(int a, int b, int c) {
     return multiply(add(a, b), c);

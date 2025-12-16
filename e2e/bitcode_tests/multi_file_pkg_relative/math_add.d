@@ -1,4 +1,4 @@
-module multi_file.math_add;
+module math_add;
 
 int add(int a, int b) {
     return a + b;
