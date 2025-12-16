@@ -27,26 +27,32 @@ def compile_bitcode_to_native(ctx, toolchain, bc_archive, bc_objs, single_object
         # Parallel mode: compile each bitcode object separately
         return _compile_bitcode_parallel(ctx, toolchain, bc_objs, qualified_object_file_names)
 
-def compile_bitcode_single_action(ctx, toolchain, bc_archive, output):
-    """Compile bitcode archive in a single action (unpack/compile/pack).
+def compile_bitcode_single_action(ctx, toolchain, bc_obj, bc_archive, output):
+    """Compile bitcode in a single action.
 
-    This is called separately from compile_bitcode_to_native when single-action mode is used.
+    Handles both single bitcode objects (.bc.o) and bitcode archives (.bc.a).
 
     Args:
         ctx: The rule context
         toolchain: The D toolchain
-        bc_archive: Bitcode archive File
-        output: Output archive File (already declared)
+        bc_obj: Single bitcode object file (for binaries/tests, may be None)
+        bc_archive: Bitcode archive file (for libraries, may be None)
+        output: Output file (archive .a or object .o, already declared)
 
     Returns:
         None (output file is written directly)
     """
-    # output is already declared by the caller (final archive)
-
     # Build arguments for llc_archive_compiler.sh
     args = ctx.actions.args()
-    args.add("--input", bc_archive)
-    args.add("--output-archive", output)
+
+    # Add input flag based on type
+    if bc_obj:
+        args.add("--input-object", bc_obj)
+    else:
+        args.add("--input-lib", bc_archive)
+
+    # Add output
+    args.add("--output", output)
 
     # Add llc path if available from toolchain
     if toolchain.llc_compiler:
@@ -73,16 +79,16 @@ def compile_bitcode_single_action(ctx, toolchain, bc_archive, output):
     if toolchain.ar_tool:
         tools.append(toolchain.ar_tool[DefaultInfo].files_to_run)
 
-    # Run the archive compiler
+    # Run the compiler
     ctx.actions.run(
-        inputs = [bc_archive],
+        inputs = [bc_obj or bc_archive],
         outputs = [output],
         executable = compiler_script,
         arguments = [args],
         tools = tools,
         use_default_shell_env = True,  # Needed to find system llc/ar if not in toolchain
         mnemonic = "BitcodeToNative",
-        progress_message = "Compiling bitcode archive to native %s" % ctx.label.name,
+        progress_message = "Compiling bitcode to native %s" % ctx.label.name,
     )
 
 def _compile_bitcode_parallel(ctx, toolchain, bc_objs, qualified_object_file_names):

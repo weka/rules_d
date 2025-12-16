@@ -45,3 +45,19 @@ d_test(
     srcs = ["simple_test.d"],
     deps = [":simple_lib_normal"],
 )
+
+# Test 4: Binary compiled via bitcode
+d_binary(
+    name = "binary_via_bitcode",
+    srcs = ["simple_test.d"],
+    compile_via_bc = "on",
+    deps = [":simple_lib_bc"],
+)
+
+# Test 5: Test compiled via bitcode
+d_test(
+    name = "test_via_bitcode",
+    srcs = ["simple_test.d"],
+    compile_via_bc = "on",
+    deps = [":simple_lib_bc"],
+)

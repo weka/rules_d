@@ -23,6 +23,11 @@ common_attrs = {
     "string_imports": attr.string_list(doc = "List of string import paths."),
     "string_srcs": attr.label_list(doc = "List of string import source files."),
     "versions": attr.string_list(doc = "List of version identifiers."),
+    "compile_via_bc": attr.string(
+        default = "auto",
+        values = ["auto", "on", "off"],
+        doc = "Enables staged compilation via bitcode.",
+    ),
     "_linux_constraint": attr.label(default = "@platforms//os:linux", doc = "Linux platform constraint"),
     "_macos_constraint": attr.label(default = "@platforms//os:macos", doc = "macOS platform constraint"),
     "_windows_constraint": attr.label(default = "@platforms//os:windows", doc = "Windows platform constraint"),
@@ -43,9 +48,9 @@ runnable_attrs = dicts.add(
             doc = "LDC wrapper script for unified compilation",
         ),
         "_llc_archive_compiler": attr.label(
-            default = "//d/private/scripts:llc_archive_compiler.sh",
+            default = "//d/private/scripts:compile_bitcode.sh",
             allow_single_file = True,
-            doc = "LLC archive compiler script for single-action bitcode compilation",
+            doc = "Bitcode compilation script for single-action bitcode compilation",
         ),
     },
 )
@@ -79,11 +84,6 @@ library_attrs = dicts.add(
             doc = "Private dependencies not propagated to consumers.",
             providers = [[CcInfo], [DInfo]],
         ),
-        "compile_via_bc": attr.string(
-            default = "auto",
-            values = ["auto", "on", "off"],
-            doc = "Controls bitcode compilation (requires single_object).",
-        ),
         "qualified_object_file_names": attr.string(
             default = "auto",
             values = ["auto", "on", "off"],
@@ -99,9 +99,9 @@ library_attrs = dicts.add(
             doc = "LDC wrapper script for unified compilation",
         ),
         "_llc_archive_compiler": attr.label(
-            default = "//d/private/scripts:llc_archive_compiler.sh",
+            default = "//d/private/scripts:compile_bitcode.sh",
             allow_single_file = True,
-            doc = "LLC archive compiler script for single-action bitcode compilation",
+            doc = "Bitcode compilation script for single-action bitcode compilation",
         ),
     },
 )
@@ -325,10 +325,22 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
             static_library = output,
         )
     else:
+        # Binary and test targets: compile to object file with -c
         args.add("-c")
         output = ctx.actions.declare_file(object_file_name(ctx, ctx.label.name))
         library_to_link = None
-        compile_via_bc = False
+
+        # Resolve bitcode compilation flag
+        compile_via_bc = resolve_tristate_flag(ctx.attr.compile_via_bc, toolchain.compile_via_bc)
+
+        # Validate bitcode requirements if enabled
+        if compile_via_bc:
+            if not toolchain.output_bc_flags:
+                fail("Bitcode compilation requested but toolchain.output_bc_flags not set")
+            # Add bitcode flags
+            args.add_all(toolchain.output_bc_flags)
+
+        # Qualified object file names not applicable for single object output
         qualified_object_file_names = False
 
     # Unified compilation using ldc_wrapper.sh
@@ -351,41 +363,47 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
     # Declare bitcode object files if compiling via bitcode
     bc_objs = []
     bc_archive = None
+    bc_obj = None
     compile_output = output  # By default, compile directly to output
-    if target_type == TARGET_TYPE.LIBRARY and compile_via_bc:
-        # For bitcode compilation, use intermediate bitcode archive
-        bc_archive = ctx.actions.declare_file(ctx.label.name + ".bc.a")
-        compile_output = bc_archive
+    if compile_via_bc:
+        if target_type == TARGET_TYPE.LIBRARY:
+            # For libraries: compile to bitcode archive
+            bc_archive = ctx.actions.declare_file(ctx.label.name + ".bc.a")
+            compile_output = bc_archive
 
-        # Detect single-action mode: single_object or only one source file
-        use_single_action = single_object or len(ctx.files.srcs) == 1
+            # Detect single-action mode: single_object or only one source file
+            use_single_action = single_object or len(ctx.files.srcs) == 1
 
-        if use_single_action:
-            # Single-action mode: don't unpack, llc_archive_compiler will handle it
-            env["LDC_SKIP_UNPACK"] = "1"
+            if use_single_action:
+                # Single-action mode: don't unpack, llc_archive_compiler will handle it
+                env["LDC_SKIP_UNPACK"] = "1"
+            else:
+                # Parallel mode: compute and declare individual bitcode object files
+                obj_names = compute_object_file_names(ctx, ctx.files.srcs, qualified_object_file_names)
+                for src, obj_name in obj_names.items():
+                    bc_obj_file = ctx.actions.declare_file(ctx.label.name + "_bc_objs/" + obj_name)
+                    bc_objs.append(bc_obj_file)
+
+                # Set BC_UNPACK_DIR for wrapper to unpack archive
+                bc_unpack_dir = bc_objs[0].dirname if bc_objs else ""
+                env["BC_UNPACK_DIR"] = bc_unpack_dir
+
+            # Set AR_CMD: use toolchain ar_tool if available, otherwise system ar
+            if toolchain.ar_tool:
+                env["AR_CMD"] = toolchain.ar_tool[DefaultInfo].files_to_run.executable.path
+            else:
+                env["AR_CMD"] = "ar"
         else:
-            # Parallel mode: compute and declare individual bitcode object files
-            obj_names = compute_object_file_names(ctx, ctx.files.srcs, qualified_object_file_names)
-            for src, obj_name in obj_names.items():
-                bc_obj = ctx.actions.declare_file(ctx.label.name + "_bc_objs/" + obj_name)
-                bc_objs.append(bc_obj)
-
-            # Set BC_UNPACK_DIR for wrapper to unpack archive
-            bc_unpack_dir = bc_objs[0].dirname if bc_objs else ""
-            env["BC_UNPACK_DIR"] = bc_unpack_dir
-
-        # Set AR_CMD: use toolchain ar_tool if available, otherwise system ar
-        if toolchain.ar_tool:
-            env["AR_CMD"] = toolchain.ar_tool[DefaultInfo].files_to_run.executable.path
-        else:
-            env["AR_CMD"] = "ar"
+            # For binaries/tests: compile to single bitcode object file
+            bc_obj = ctx.actions.declare_file(ctx.label.name + ".bc.o")
+            compile_output = bc_obj
 
     # Stage 1: Compile (and optionally unpack if bitcode)
     args.add(compile_output, format = "-of=%s")
     outputs = [compile_output] + bc_objs
     tools = [toolchain.d_compiler[DefaultInfo].files_to_run]
     # Add ar_tool to tools if using it for unpacking
-    if target_type == TARGET_TYPE.LIBRARY and compile_via_bc and toolchain.ar_tool:
+    if compile_via_bc and toolchain.ar_tool:
         tools.append(toolchain.ar_tool[DefaultInfo].files_to_run)
 
     ctx.actions.run(
@@ -401,13 +419,14 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
     )
 
     # Stage 2 & 3: Bitcode to native compilation and repacking (if bitcode enabled)
-    if target_type == TARGET_TYPE.LIBRARY and compile_via_bc:
-        # Detect single-action mode (same check as above)
-        use_single_action = single_object or len(ctx.files.srcs) == 1
+    if compile_via_bc:
+        # Check if using single-action mode or parallel mode
+        # Single-action: bc_obj (binaries/tests) or single_object or single source
+        use_single_action = bc_obj or single_object or len(ctx.files.srcs) == 1
 
         if use_single_action:
-            # Single-action mode: unpack/compile/pack in one step
-            compile_bitcode_single_action(ctx, toolchain, bc_archive, output)
+            # Single-action mode: compile .bc.o or unpack/compile/pack .bc.a
+            compile_bitcode_single_action(ctx, toolchain, bc_obj, bc_archive, output)
         else:
             # Parallel mode: Stage 2 - Compile bitcode objects to native
             native_objs = compile_bitcode_to_native(ctx, toolchain, bc_archive, bc_objs, single_object, qualified_object_file_names)

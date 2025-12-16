@@ -1,4 +1,4 @@
 exports_files([
     "ldc_wrapper.sh",
-    "llc_archive_compiler.sh",
+    "compile_bitcode.sh",
 ])
