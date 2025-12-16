@@ -28,6 +28,16 @@ common_attrs = {
         values = ["auto", "on", "off"],
         doc = "Enables staged compilation via bitcode.",
     ),
+    "_ldc_wrapper_script": attr.label(
+        default = "//d/private/scripts:ldc_wrapper.sh",
+        allow_single_file = True,
+        doc = "LDC wrapper script for unified compilation",
+    ),
+    "_llc_archive_compiler": attr.label(
+        default = "//d/private/scripts:compile_bitcode.sh",
+        allow_single_file = True,
+        doc = "Bitcode compilation script for single-action bitcode compilation",
+    ),
     "_linux_constraint": attr.label(default = "@platforms//os:linux", doc = "Linux platform constraint"),
     "_macos_constraint": attr.label(default = "@platforms//os:macos", doc = "macOS platform constraint"),
     "_windows_constraint": attr.label(default = "@platforms//os:windows", doc = "Windows platform constraint"),
@@ -41,16 +51,6 @@ runnable_attrs = dicts.add(
         "_cc_toolchain": attr.label(
             default = "@rules_cc//cc:current_cc_toolchain",
             doc = "Default CC toolchain, used for linking. Remove after https://github.com/bazelbuild/bazel/issues/7260 is flipped (and support for old Bazel version is not needed)",
-        ),
-        "_ldc_wrapper_script": attr.label(
-            default = "//d/private/scripts:ldc_wrapper.sh",
-            allow_single_file = True,
-            doc = "LDC wrapper script for unified compilation",
-        ),
-        "_llc_archive_compiler": attr.label(
-            default = "//d/private/scripts:compile_bitcode.sh",
-            allow_single_file = True,
-            doc = "Bitcode compilation script for single-action bitcode compilation",
         ),
     },
 )
@@ -92,16 +92,6 @@ library_attrs = dicts.add(
                 - "on": Use qualified names (package.path.basename.o)
                 - "off": Use basename only (basename.o)
             """,
-        ),
-        "_ldc_wrapper_script": attr.label(
-            default = "//d/private/scripts:ldc_wrapper.sh",
-            allow_single_file = True,
-            doc = "LDC wrapper script for unified compilation",
-        ),
-        "_llc_archive_compiler": attr.label(
-            default = "//d/private/scripts:compile_bitcode.sh",
-            allow_single_file = True,
-            doc = "Bitcode compilation script for single-action bitcode compilation",
         ),
     },
 )
