@@ -112,6 +112,166 @@ TARGET_TYPE = struct(
     TEST = "test",
 )
 
+def _compilation_config_from_ctx(ctx):
+    toolchain = ctx.toolchains["//d:toolchain_type"].d_toolchain_info
+    compile_via_bc = resolve_tristate_flag(ctx.attr.compile_via_bc, toolchain.compile_via_bc)
+    if compile_via_bc:
+        if not toolchain.output_bc_flags:
+            fail("Bitcode compilation requested but toolchain.output_bc_flags not set")
+    single_object = hasattr(ctx.attr, "single_object") and resolve_tristate_flag(ctx.attr.single_object, toolchain.single_object)
+    if single_object:
+        # Verify compiler supports single object mode
+        if not toolchain.single_obj_flag:
+            fail("Single object mode requested but not supported by compiler. " +
+                    "Use LDC toolchain or set single_object='off'.")
+    qualified_object_file_names = hasattr(ctx.attr, "qualified_object_file_names") and resolve_tristate_flag(ctx.attr.qualified_object_file_names, toolchain.qualified_object_file_names)
+    return struct(
+        compile_via_bc = compile_via_bc,
+        qualified_object_file_names = qualified_object_file_names,
+        single_object = single_object,
+        use_single_action = single_object or len(ctx.files.srcs) == 1,
+        project_root = compute_project_root(ctx, ctx.attr.project_root),
+    )
+
+def _compilation_impl(ctx, target_type, config, toolchain, imports, string_imports, compiler_flags, versions, all_d_deps):
+    compilation_mode = ctx.var["COMPILATION_MODE"]
+    single_object = config.single_object
+    qualified_object_file_names = config.qualified_object_file_names
+    compile_via_bc = config.compile_via_bc
+    use_single_action = config.use_single_action
+    args = ctx.actions.args()
+
+    # Apply compiler flags in order: toolchain common, toolchain per-mode, user flags
+    if toolchain.compiler_flags:
+        args.add_all(toolchain.compiler_flags)
+
+    if toolchain.compiler_flags_per_mode and compilation_mode in toolchain.compiler_flags_per_mode:
+        args.add_all(toolchain.compiler_flags_per_mode[compilation_mode])
+
+    args.add_all(ctx.files.srcs)
+    args.add_all(imports.to_list(), format_each = "-I=%s")
+    args.add_all(string_imports.to_list(), format_each = "-J=%s")
+    args.add_all(compiler_flags.to_list())
+
+    # Use version_flag from toolchain config
+    version_flag = toolchain.version_flag if toolchain.version_flag else "-version="
+    args.add_all(versions.to_list(), format_each = version_flag + "%s")
+    output = None
+    if target_type == TARGET_TYPE.TEST:
+        args.add_all(["-main", "-unittest"])
+    if target_type == TARGET_TYPE.LIBRARY:
+        # Always use lib_flags to create archive
+        args.add_all(toolchain.lib_flags)
+
+        if single_object:
+            args.add(toolchain.single_obj_flag)
+
+        # Add --oq flag if qualified object file names are enabled
+        if qualified_object_file_names:
+            args.add("--oq")
+
+        output = ctx.actions.declare_file(static_library_name(ctx, ctx.label.name))
+        library_to_link = None if ctx.attr.source_only else cc_common.create_library_to_link(
+            actions = ctx.actions,
+            static_library = output,
+        )
+    else:
+        # Binary and test targets: compile to object file with -c
+        args.add("-c")
+        output = ctx.actions.declare_file(object_file_name(ctx, ctx.label.name))
+        library_to_link = None
+
+    if compile_via_bc:
+        # Add bitcode flags
+        args.add_all(toolchain.output_bc_flags)
+
+    # Unified compilation using ldc_wrapper.sh
+    wrapper_script = ctx.attr._ldc_wrapper_script[DefaultInfo].files.to_list()[0]
+
+    inputs = depset(
+        direct = (ctx.files.srcs + ctx.files.string_srcs +
+                  (ctx.files.data if hasattr(ctx.files, "data") else []) +
+                  (ctx.files.hdrs if hasattr(ctx.files, "hdrs") else []) +
+                  (ctx.files.exports if hasattr(ctx.files, "exports") else []) +
+                  [wrapper_script]),
+        transitive = [toolchain.d_compiler[DefaultInfo].default_runfiles.files] +
+                     [d.interface_srcs for d in all_d_deps],
+    )
+
+    # Prepare environment variables for wrapper
+    env = dict(ctx.var)
+    env["LDC2_REAL"] = toolchain.d_compiler[DefaultInfo].files_to_run.executable.path
+
+    # Declare bitcode object files if compiling via bitcode
+    bc_objs = []
+    bc_archive = None
+    bc_obj = None
+    compile_output = output  # By default, compile directly to output
+    if compile_via_bc:
+        if target_type == TARGET_TYPE.LIBRARY:
+            # For libraries: compile to bitcode archive
+            bc_archive = ctx.actions.declare_file(ctx.label.name + ".bc.a")
+            compile_output = bc_archive
+
+            if use_single_action:
+                # Single-action mode: don't unpack, llc_archive_compiler will handle it
+                env["LDC_SKIP_UNPACK"] = "1"
+            else:
+                # Parallel mode: compute and declare individual bitcode object files
+                obj_names = compute_object_file_names(ctx, ctx.files.srcs, qualified_object_file_names, config.project_root)
+                for src, obj_name in obj_names.items():
+                    bc_obj_file = ctx.actions.declare_file(ctx.label.name + "_bc_objs/" + obj_name)
+                    bc_objs.append(bc_obj_file)
+
+                # Set BC_UNPACK_DIR for wrapper to unpack archive
+                bc_unpack_dir = bc_objs[0].dirname if bc_objs else ""
+                env["BC_UNPACK_DIR"] = bc_unpack_dir
+
+            # Set AR_CMD: use toolchain ar_tool if available, otherwise system ar
+            if toolchain.ar_tool:
+                env["AR_CMD"] = toolchain.ar_tool[DefaultInfo].files_to_run.executable.path
+            else:
+                env["AR_CMD"] = "ar"
+        else:
+            # For binaries/tests: compile to single bitcode object file
+            bc_obj = ctx.actions.declare_file(ctx.label.name + ".bc.o")
+            compile_output = bc_obj
+
+    # Stage 1: Compile (and optionally unpack if bitcode)
+    args.add(compile_output, format = "-of=%s")
+    outputs = [compile_output] + bc_objs
+    tools = [toolchain.d_compiler[DefaultInfo].files_to_run]
+    # Add ar_tool to tools if using it for unpacking
+    if compile_via_bc and toolchain.ar_tool:
+        tools.append(toolchain.ar_tool[DefaultInfo].files_to_run)
+
+    ctx.actions.run(
+        inputs = inputs,
+        outputs = outputs,
+        executable = wrapper_script,
+        arguments = [args],
+        tools = tools,
+        env = env,
+        use_default_shell_env = False,
+        mnemonic = "Dcompile",
+        progress_message = "Compiling D %s %s" % (target_type, ctx.label.name),
+    )
+
+    # Stage 2 & 3: Bitcode to native compilation and repacking (if bitcode enabled)
+    if compile_via_bc:
+        if use_single_action:
+            # Single-action mode: compile .bc.o or unpack/compile/pack .bc.a
+            compile_bitcode_single_action(ctx, toolchain, bc_obj, bc_archive, output)
+        else:
+            # Parallel mode: Stage 2 - Compile bitcode objects to native
+            native_objs = compile_bitcode_to_native(ctx, toolchain, bc_archive, bc_objs, single_object, qualified_object_file_names, config.project_root)
+
+            # Stage 3: Repack native objects into final archive (only if not single-action)
+            if native_objs:
+                repack_native_objects(ctx, toolchain, native_objs, output)
+
+    return output, library_to_link
+
 def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
     """Defines a compilation action for D source files.
 
@@ -159,10 +319,6 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
         [paths.join(ctx.label.workspace_root, ctx.label.package, imp) for imp in ctx.attr.imports],
         transitive = [d.imports for d in all_d_deps],
     )
-    linker_flags = depset(
-        ctx.attr.linkopts,
-        transitive = [d.linker_flags for d in all_d_deps],
-    )
     string_imports = depset(
         ([pkg_path] if pkg_path and ctx.files.string_srcs else []) +
         [paths.join(ctx.label.workspace_root, ctx.label.package, imp) for imp in ctx.attr.string_imports],
@@ -185,17 +341,7 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
         transitive = [d.versions for d in all_d_deps],
     )
 
-    # Collect data files (from all deps for compilation)
-    data_files = depset(
-        ctx.files.data if hasattr(ctx.files, "data") else [],
-        transitive = [d.data for d in all_d_deps if hasattr(d, "data")],
-    )
-    transitive_data = depset(
-        transitive = [d.transitive_data for d in all_d_deps if hasattr(d, "transitive_data")],
-    )
-
     # Determine which sources to export (libraries only)
-    d_exports = depset()
     direct_interface_srcs = ctx.files.srcs
 
     if target_type == TARGET_TYPE.LIBRARY:
@@ -210,246 +356,27 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
         if public_srcs:
             direct_interface_srcs = public_srcs
 
-        # Build d_exports with transitive (from all deps for compilation)
-        d_exports = depset(
-            direct_interface_srcs,
-            transitive = [d.d_exports for d in all_d_deps if hasattr(d, "d_exports")],
-        )
-
     # Check if this is a header-only or deps-only library (no srcs to compile)
     has_srcs = len(ctx.files.srcs) > 0
 
-    # Skip compilation if no sources (header-only or deps-only library)
-    if not has_srcs and target_type == TARGET_TYPE.LIBRARY:
-        # Return DInfo without compilation
-        return DInfo(
-            compilation_output = None,
-            compiler_flags = depset(
-                ctx.attr.dopts,
-                transitive = [d.compiler_flags for d in d_deps],
-            ),
-            imports = depset(
-                ([import_base_path] if import_base_path else []) +
-                [paths.join(ctx.label.workspace_root, ctx.label.package, imp) for imp in ctx.attr.imports],
-                transitive = [d.imports for d in d_deps],
-            ),
-            interface_srcs = depset(
-                direct_interface_srcs + ctx.files.string_srcs,
-                transitive = [d.interface_srcs for d in d_deps],
-            ),
-            linking_context = cc_common.create_linking_context(
-                linker_inputs = depset(
-                    transitive = [d.linking_context.linker_inputs for d in all_c_deps + all_d_deps],
-                ),
-            ),
-            linker_flags = depset(
-                ctx.attr.linkopts,
-                transitive = [d.linker_flags for d in d_deps],
-            ),
-            source_only = ctx.attr.source_only if hasattr(ctx.attr, "source_only") else False,
-            string_imports = depset(
-                ([import_base_path] if import_base_path and ctx.files.string_srcs else []) +
-                [paths.join(ctx.label.workspace_root, ctx.label.package, imp) for imp in ctx.attr.string_imports],
-                transitive = [d.string_imports for d in d_deps],
-            ),
-            versions = depset(
-                ctx.attr.versions + global_versions,
-                transitive = [d.versions for d in d_deps],
-            ),
-            data = depset(
-                ctx.files.data if hasattr(ctx.files, "data") else [],
-                transitive = [d.data for d in d_deps if hasattr(d, "data")],
-            ),
-            transitive_data = depset(
-                transitive = [d.transitive_data for d in d_deps if hasattr(d, "transitive_data")],
-            ),
-            d_exports = depset(
-                direct_interface_srcs,
-                transitive = [d.d_exports for d in d_deps if hasattr(d, "d_exports")],
-            ),
-            libs_bc = depset(),
-            libs_non_bc = depset(),
-        )
-
-    args = ctx.actions.args()
-
-    # Apply compiler flags in order: toolchain common, toolchain per-mode, user flags
-    if toolchain.compiler_flags:
-        args.add_all(toolchain.compiler_flags)
-
-    if toolchain.compiler_flags_per_mode and compilation_mode in toolchain.compiler_flags_per_mode:
-        args.add_all(toolchain.compiler_flags_per_mode[compilation_mode])
-
-    args.add_all(ctx.files.srcs)
-    args.add_all(imports.to_list(), format_each = "-I=%s")
-    args.add_all(string_imports.to_list(), format_each = "-J=%s")
-    args.add_all(compiler_flags.to_list())
-
-    # Use version_flag from toolchain config
-    version_flag = toolchain.version_flag if toolchain.version_flag else "-version="
-    args.add_all(versions.to_list(), format_each = version_flag + "%s")
+    config = _compilation_config_from_ctx(ctx)
+    compile_via_bc = config.compile_via_bc
+    library_to_link = None
     output = None
-    if target_type == TARGET_TYPE.TEST:
-        args.add_all(["-main", "-unittest"])
-    if target_type == TARGET_TYPE.LIBRARY:
-        # Always use lib_flags to create archive
-        if toolchain.lib_flags:
-            args.add_all(toolchain.lib_flags)
+    # Skip compilation if no sources (header-only or deps-only library)
+    if has_srcs:
+        output, library_to_link = _compilation_impl(ctx, target_type, config, toolchain, imports, string_imports, compiler_flags, versions, all_d_deps)
 
-        # Add single object flag if enabled
-        # NOTE: Bitcode compilation (future phase) will require single object mode.
-        # When compile_via_bc is enabled, single_object must be "on" or "auto"
-        # (resolving to True). The --singleobj flag ensures the bitcode workflow
-        # produces a single object file before archiving.
-        single_object = resolve_tristate_flag(ctx.attr.single_object, toolchain.single_object)
-        if single_object:
-            # Verify compiler supports single object mode
-            if not toolchain.single_obj_flag:
-                fail("Single object mode requested but not supported by compiler. " +
-                     "Use LDC toolchain or set single_object='off'.")
-            args.add(toolchain.single_obj_flag)
-
-        # Resolve bitcode and qualified object file names flags
-        compile_via_bc = resolve_tristate_flag(ctx.attr.compile_via_bc, toolchain.compile_via_bc)
-        qualified_object_file_names = resolve_tristate_flag(
-            ctx.attr.qualified_object_file_names,
-            toolchain.qualified_object_file_names,
+    linker_input = None
+    if library_to_link:
+        linker_input = cc_common.create_linker_input(
+            owner = ctx.label,
+            libraries = depset(direct = [library_to_link] if library_to_link else None),
+            user_link_flags = ctx.attr.linkopts,
         )
-
-        # Add --oq flag if qualified object file names are enabled
-        if qualified_object_file_names:
-            args.add("--oq")
-
-        # Validate bitcode requirements if enabled
-        if compile_via_bc:
-            if not toolchain.output_bc_flags:
-                fail("Bitcode compilation requested but toolchain.output_bc_flags not set")
-            # Add bitcode flags
-            if toolchain.output_bc_flags:
-                args.add_all(toolchain.output_bc_flags)
-
-        output = ctx.actions.declare_file(static_library_name(ctx, ctx.label.name))
-        library_to_link = None if ctx.attr.source_only else cc_common.create_library_to_link(
-            actions = ctx.actions,
-            static_library = output,
-        )
-    else:
-        # Binary and test targets: compile to object file with -c
-        args.add("-c")
-        output = ctx.actions.declare_file(object_file_name(ctx, ctx.label.name))
-        library_to_link = None
-
-        # Resolve bitcode compilation flag
-        compile_via_bc = resolve_tristate_flag(ctx.attr.compile_via_bc, toolchain.compile_via_bc)
-
-        # Validate bitcode requirements if enabled
-        if compile_via_bc:
-            if not toolchain.output_bc_flags:
-                fail("Bitcode compilation requested but toolchain.output_bc_flags not set")
-            # Add bitcode flags
-            args.add_all(toolchain.output_bc_flags)
-
-        # Qualified object file names not applicable for single object output
-        qualified_object_file_names = False
-
-    # Unified compilation using ldc_wrapper.sh
-    wrapper_script = ctx.attr._ldc_wrapper_script[DefaultInfo].files.to_list()[0]
-
-    inputs = depset(
-        direct = (ctx.files.srcs + ctx.files.string_srcs +
-                  (ctx.files.data if hasattr(ctx.files, "data") else []) +
-                  (ctx.files.hdrs if hasattr(ctx.files, "hdrs") else []) +
-                  (ctx.files.exports if hasattr(ctx.files, "exports") else []) +
-                  [wrapper_script]),
-        transitive = [toolchain.d_compiler[DefaultInfo].default_runfiles.files] +
-                     [d.interface_srcs for d in all_d_deps],
-    )
-
-    # Prepare environment variables for wrapper
-    env = dict(ctx.var)
-    env["LDC2_REAL"] = toolchain.d_compiler[DefaultInfo].files_to_run.executable.path
-
-    # Declare bitcode object files if compiling via bitcode
-    bc_objs = []
-    bc_archive = None
-    bc_obj = None
-    compile_output = output  # By default, compile directly to output
-    if compile_via_bc:
-        if target_type == TARGET_TYPE.LIBRARY:
-            # For libraries: compile to bitcode archive
-            bc_archive = ctx.actions.declare_file(ctx.label.name + ".bc.a")
-            compile_output = bc_archive
-
-            # Detect single-action mode: single_object or only one source file
-            use_single_action = single_object or len(ctx.files.srcs) == 1
-
-            if use_single_action:
-                # Single-action mode: don't unpack, llc_archive_compiler will handle it
-                env["LDC_SKIP_UNPACK"] = "1"
-            else:
-                # Parallel mode: compute and declare individual bitcode object files
-                obj_names = compute_object_file_names(ctx, ctx.files.srcs, qualified_object_file_names, project_root)
-                for src, obj_name in obj_names.items():
-                    bc_obj_file = ctx.actions.declare_file(ctx.label.name + "_bc_objs/" + obj_name)
-                    bc_objs.append(bc_obj_file)
-
-                # Set BC_UNPACK_DIR for wrapper to unpack archive
-                bc_unpack_dir = bc_objs[0].dirname if bc_objs else ""
-                env["BC_UNPACK_DIR"] = bc_unpack_dir
-
-            # Set AR_CMD: use toolchain ar_tool if available, otherwise system ar
-            if toolchain.ar_tool:
-                env["AR_CMD"] = toolchain.ar_tool[DefaultInfo].files_to_run.executable.path
-            else:
-                env["AR_CMD"] = "ar"
-        else:
-            # For binaries/tests: compile to single bitcode object file
-            bc_obj = ctx.actions.declare_file(ctx.label.name + ".bc.o")
-            compile_output = bc_obj
-
-    # Stage 1: Compile (and optionally unpack if bitcode)
-    args.add(compile_output, format = "-of=%s")
-    outputs = [compile_output] + bc_objs
-    tools = [toolchain.d_compiler[DefaultInfo].files_to_run]
-    # Add ar_tool to tools if using it for unpacking
-    if compile_via_bc and toolchain.ar_tool:
-        tools.append(toolchain.ar_tool[DefaultInfo].files_to_run)
-
-    ctx.actions.run(
-        inputs = inputs,
-        outputs = outputs,
-        executable = wrapper_script,
-        arguments = [args],
-        tools = tools,
-        env = env,
-        use_default_shell_env = False,
-        mnemonic = "Dcompile",
-        progress_message = "Compiling D %s %s" % (target_type, ctx.label.name),
-    )
-
-    # Stage 2 & 3: Bitcode to native compilation and repacking (if bitcode enabled)
-    if compile_via_bc:
-        # Check if using single-action mode or parallel mode
-        # Single-action: bc_obj (binaries/tests) or single_object or single source
-        use_single_action = bc_obj or single_object or len(ctx.files.srcs) == 1
-
-        if use_single_action:
-            # Single-action mode: compile .bc.o or unpack/compile/pack .bc.a
-            compile_bitcode_single_action(ctx, toolchain, bc_obj, bc_archive, output)
-        else:
-            # Parallel mode: Stage 2 - Compile bitcode objects to native
-            native_objs = compile_bitcode_to_native(ctx, toolchain, bc_archive, bc_objs, single_object, qualified_object_file_names, project_root)
-
-            # Stage 3: Repack native objects into final archive (only if not single-action)
-            if native_objs:
-                repack_native_objects(ctx, toolchain, native_objs, output)
-    linker_input = cc_common.create_linker_input(
-        owner = ctx.label,
-        libraries = depset(direct = [library_to_link] if library_to_link else None),
-    )
     linking_context = cc_common.create_linking_context(
         linker_inputs = depset(
-            direct = [linker_input],
+            direct = [linker_input] if linker_input else None,
             transitive = [
                 d.linking_context.linker_inputs
                 for d in all_c_deps + all_d_deps
@@ -491,19 +418,16 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
             ctx.files.data if hasattr(ctx.files, "data") else [],
             transitive = [d.data for d in d_deps if hasattr(d, "data")],  # Only regular deps
         ),
-        transitive_data = depset(
-            transitive = [d.transitive_data for d in d_deps if hasattr(d, "transitive_data")],  # Only regular deps
-        ),
         d_exports = depset(
             direct_interface_srcs if target_type == TARGET_TYPE.LIBRARY else [],
             transitive = [d.d_exports for d in d_deps if hasattr(d, "d_exports")],  # Only regular deps
         ),
         libs_bc = depset(
-            direct = [output] if (target_type == TARGET_TYPE.LIBRARY and compile_via_bc and not ctx.attr.source_only) else [],
+            direct = [output] if (output and target_type == TARGET_TYPE.LIBRARY and compile_via_bc and not ctx.attr.source_only) else [],
             transitive = [d.libs_bc for d in d_deps if hasattr(d, "libs_bc")],
         ),
         libs_non_bc = depset(
-            direct = [output] if (target_type == TARGET_TYPE.LIBRARY and not compile_via_bc and not ctx.attr.source_only) else [],
+            direct = [output] if (output and target_type == TARGET_TYPE.LIBRARY and not compile_via_bc and not ctx.attr.source_only) else [],
             transitive = [d.libs_non_bc for d in d_deps if hasattr(d, "libs_non_bc")],
         ),
     )
