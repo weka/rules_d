@@ -1,0 +1,13 @@
+load("//d:defs.bzl", "d_library", "d_test")
+
+d_library(
+    name = "lib",
+    srcs = ["lib.d"],
+    dopts = ["-unittest", "-main"],
+)
+
+d_test(
+    name = "test",
+    srcs = [],
+    deps = [":lib"],
+)
