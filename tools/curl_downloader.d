@@ -1,5 +1,7 @@
 // Small wrapper over curl C-API as std.net.curl seems to be broken
 
+module tools.curl_downloader;
+
 import std.algorithm : each;
 import etc.c.curl;
 import std.exception : enforce;

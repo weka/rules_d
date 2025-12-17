@@ -1,3 +1,5 @@
+module tools.integrity_hash;
+
 import std.algorithm : each;
 import std.conv : to;
 import std.exception : enforce;

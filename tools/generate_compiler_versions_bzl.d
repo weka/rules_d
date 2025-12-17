@@ -1,3 +1,5 @@
+module tools.generate_compiler_versions_bzl;
+
 import std.algorithm : chunkBy, countUntil, each, filter, map, sort, splitter, uniq;
 import std.array : array, appender, assocArray, join;
 import std.conv : to;
@@ -13,8 +15,8 @@ import std.string : assumeUTF;
 import std.regex : escaper, matchAll, matchFirst, regex;
 import std.typecons : Nullable, nullable, tuple;
 
-import curl_downloader : CurlDownloader, CurlException;
-import integrity_hash : computeIntegrityHash;
+import tools.curl_downloader : CurlDownloader, CurlException;
+import tools.integrity_hash : computeIntegrityHash;
 
 string GITHUB_API_URL = "https://api.github.com/repos";
 string GITHUB_LDC_REPO = "ldc-developers/ldc";
