@@ -1,4 +1,4 @@
-import lib_that_depends_on_lib : plusOne = overEngineeredPlusOne;
+import d.tests.lib_that_depends_on_lib.lib_that_depends_on_lib : plusOne = overEngineeredPlusOne;
 
 int main()
 {

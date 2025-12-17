@@ -1,4 +1,4 @@
-module pure_interface;
+module headers_exports.pure_interface;
 
 // Implementation file - provides bodies for interface
 int calculate(int x) {

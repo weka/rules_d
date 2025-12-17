@@ -1,4 +1,4 @@
-module simple_library;
+module d.tests.simple_d_library.simple_library;
 
 int plusOne(uint x)
 {

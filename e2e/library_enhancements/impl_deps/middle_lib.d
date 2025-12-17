@@ -1,7 +1,7 @@
-module middle_lib;
+module impl_deps.middle_lib;
 
 // Middle library - uses base_lib internally but doesn't expose it
 int middleFunction(int x) {
-    import base_lib;
+    import impl_deps.base_lib;
     return baseFunction(x) * 2;
 }

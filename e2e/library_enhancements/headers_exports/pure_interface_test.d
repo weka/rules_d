@@ -1,7 +1,7 @@
-module pure_interface_test;
+module headers_exports.pure_interface_test;
 
 void main() {
-    import pure_interface;
+    import headers_exports.pure_interface;
 
     // Test that we can use the interface through the headers-only library
     int result = calculate(5);

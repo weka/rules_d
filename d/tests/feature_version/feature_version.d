@@ -1,3 +1,5 @@
+module d.tests.feature_version.feature_version;
+
 unittest
 {
     version(Foo)

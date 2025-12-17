@@ -1,3 +1,5 @@
+module d.tests.simple.simple;
+
 import std.stdio;
 
 int main()

@@ -1,7 +1,7 @@
-module partial_export_test;
+module headers_exports.partial_export_test;
 
 void main() {
-    import public_api;
+    import headers_exports.public_api;
 
     // Can use public API
     int result = publicFunction(5);

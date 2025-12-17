@@ -1,4 +1,4 @@
-module hdrs_only_lib;
+module headers_exports.hdrs_only_lib;
 
 // Implementation file - not exposed to consumers
 int add(int a, int b) {

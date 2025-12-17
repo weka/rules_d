@@ -1,4 +1,4 @@
-module internal;
+module headers_exports.internal;
 
 // Internal implementation detail - should not be visible to consumers
 int internalHelper(int x) {

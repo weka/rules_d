@@ -1,3 +1,5 @@
+module d.tests.c_library_usage_no_wrapper.c_library_usage_no_wrapper;
+
 extern (C) int plus_one(int x);
 
 int main()

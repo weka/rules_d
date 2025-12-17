@@ -1,7 +1,7 @@
-module hdrs_only_test;
+module headers_exports.hdrs_only_test;
 
 void main() {
-    import hdrs_only_lib;
+    import headers_exports.hdrs_only_lib;
 
     int result1 = add(2, 3);
     assert(result1 == 5, "add failed");

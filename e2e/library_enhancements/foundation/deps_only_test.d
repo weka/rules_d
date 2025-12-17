@@ -1,8 +1,8 @@
-module deps_only_test;
+module foundation.deps_only_test;
 
 void main() {
-    import helper1;
-    import helper2;
+    import foundation.helper1;
+    import foundation.helper2;
 
     int result1 = helper1Function(5);
     assert(result1 == 15, "helper1Function failed");

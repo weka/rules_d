@@ -1,7 +1,7 @@
-module data_test;
+module foundation.data_test;
 
 void main() {
-    import lib_with_data;
+    import foundation.lib_with_data;
 
     int result = processData();
     assert(result == 42, "processData failed");

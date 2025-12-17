@@ -1,4 +1,4 @@
-import simple_library : plusOne;
+import d.tests.simple_d_library.simple_library : plusOne;
 
 int main()
 {

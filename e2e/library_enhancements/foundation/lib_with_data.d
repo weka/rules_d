@@ -1,4 +1,4 @@
-module lib_with_data;
+module foundation.lib_with_data;
 
 // Library that uses data files
 int processData() {

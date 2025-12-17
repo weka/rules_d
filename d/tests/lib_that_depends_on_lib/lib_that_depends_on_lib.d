@@ -1,7 +1,7 @@
-module lib_that_depends_on_lib;
+module d.tests.lib_that_depends_on_lib.lib_that_depends_on_lib;
 
-static import simple_c = simple_library_wrapper;
-static import simple_d = simple_library;
+static import simple_c = d.tests.simple_c_library.simple_library_wrapper;
+static import simple_d = d.tests.simple_d_library.simple_library;
 
 int overEngineeredPlusOne(int x)
 {
