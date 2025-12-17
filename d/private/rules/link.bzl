@@ -23,7 +23,7 @@ def link_action(ctx, d_info):
         toolchain.libphobos[CcInfo].linking_context,
     ] + ([toolchain.druntime[CcInfo].linking_context] if toolchain.druntime else [])
     compilation_outputs = cc_common.create_compilation_outputs(
-        objects = depset(direct = [d_info.compilation_output]),
+        objects = depset(direct = [d_info.compilation_output] if d_info.compilation_output else None),
     )
 
     # Build linker flags in order: toolchain common, toolchain per-mode, user flags, dependency flags
