@@ -4,7 +4,7 @@ load("@rules_d//d:defs.bzl", "d_binary", "d_library")
 d_library(
     name = "no_prefix_import",
     srcs = ["path1/no_prefix_import.d"],
-    imports = ["path1"],
+    imports = ["path1"],  # NOTE: this works here, but better to use project_root = "./path1"
 )
 
 d_binary(
