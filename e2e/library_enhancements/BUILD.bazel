@@ -14,6 +14,7 @@ test_suite(
         "//headers_exports:partial_export_test",
         "//impl_deps:middle_lib_test",
         "//impl_deps:top_lib_test",
+        "//integration:service_lib_test",
     ],
 )
 
@@ -33,5 +34,7 @@ build_test(
         "//impl_deps:base_lib",
         "//impl_deps:middle_lib",
         "//impl_deps:top_lib",
+        "//integration:utility_lib",
+        "//integration:service_lib",
     ],
 )

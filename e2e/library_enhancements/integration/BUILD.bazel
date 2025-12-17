@@ -1,0 +1,40 @@
+load("@rules_d//d:defs.bzl", "d_library", "d_test")
+
+package(default_visibility = ["//visibility:public"])
+
+# Test: Library with both exports AND implementation_deps
+# This combines two Phase 5 features:
+# 1. exports: only public_service.d is exported (public API)
+# 2. implementation_deps: utility_lib is private (not propagated)
+
+# Base utility library (implementation detail)
+d_library(
+    name = "utility_lib",
+    srcs = ["utility.d"],
+)
+
+# Library that uses utility_lib as implementation_deps
+# and only exports public_service.d
+d_library(
+    name = "service_lib",
+    srcs = [
+        "internal_impl.d",
+        "public_service.d",
+    ],
+    exports = ["public_service.d"],
+    implementation_deps = [":utility_lib"],
+)
+
+# Now this test is a consumer of the service_lib
+# And it only depends on the public_service.d (for compilation)
+# No change to either internal_impl.d or utility.d should trigger recompilation of this test
+# (re-linking will still happen of course)
+d_test(
+    name = "service_lib_test",
+    srcs = [
+        "service_lib_test.d",
+    ],
+    deps = [
+        ":service_lib",
+    ],
+)
