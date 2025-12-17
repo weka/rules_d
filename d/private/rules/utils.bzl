@@ -148,8 +148,8 @@ def validate_sources_under_project_root(ctx, srcs, project_root):
     for src in srcs:
         src_path = src.short_path
         if not src_path.startswith(project_root + "/") and src_path != project_root:
-            fail("Source file {} is not under project_root '{}'. " +
-                 "All sources must be under the specified project root.".format(
+            fail(("Source file {} is not under project_root '{}'. " +
+                 "All sources must be under the specified project root.").format(
                      src_path, project_root))
 
 def compute_object_file_names(ctx, srcs, qualified, project_root = ""):
