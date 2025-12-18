@@ -2,20 +2,7 @@ load("@rules_d//d:defs.bzl", "d_library", "d_test")
 
 package(default_visibility = ["//visibility:public"])
 
-# Test 1: Data files support
-d_library(
-    name = "lib_with_data",
-    srcs = ["lib_with_data.d"],
-    data = ["test_data.txt"],
-)
-
-d_test(
-    name = "data_test",
-    srcs = ["data_test.d"],
-    deps = [":lib_with_data"],
-)
-
-# Test 2: Deps-only library (no sources)
+# Test 1: Deps-only library (no sources)
 d_library(
     name = "helper1",
     srcs = ["helper1.d"],

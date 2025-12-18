@@ -6,7 +6,6 @@ package(default_visibility = ["//visibility:public"])
 test_suite(
     name = "all_tests",
     tests = [
-        "//foundation:data_test",
         "//foundation:deps_only_test",
         "//headers_exports:separate_interface_test",
         "//headers_exports:pure_interface_test",
@@ -25,7 +24,6 @@ build_test(
         "//foundation:deps_only_lib",
         "//foundation:helper1",
         "//foundation:helper2",
-        "//foundation:lib_with_data",
         "//headers_exports:separate_interface_lib",
         "//headers_exports:pure_interface_lib",
         "//headers_exports:pure_interface_impl",

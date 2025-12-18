@@ -78,10 +78,6 @@ library_attrs = dicts.add(
                 - "off": Multi-object mode (archive with multiple object files)
             """,
         ),
-        "data": attr.label_list(
-            allow_files = True,
-            doc = "List of files to be made available at compile time.",
-        ),
         "hdrs": attr.label_list(
             allow_files = D_FILE_EXTENSIONS,
             doc = "D header/interface files (.di) for public API.",
@@ -190,7 +186,6 @@ def _compilation_impl(ctx, target_type, config, toolchain, imports, string_impor
 
     inputs = depset(
         direct = (ctx.files.srcs + ctx.files.string_srcs +
-                  (ctx.files.data if hasattr(ctx.files, "data") else []) +
                   (ctx.files.hdrs if hasattr(ctx.files, "hdrs") else []) +
                   (ctx.files.exports if hasattr(ctx.files, "exports") else []) +
                   [wrapper_script]),
@@ -413,10 +408,6 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
         versions = depset(
             ctx.attr.versions + global_versions,
             transitive = [d.versions for d in d_deps],  # Only regular deps
-        ),
-        data = depset(
-            ctx.files.data if hasattr(ctx.files, "data") else [],
-            transitive = [d.data for d in d_deps if hasattr(d, "data")],  # Only regular deps
         ),
         d_exports = depset(
             direct_interface_srcs if target_type == TARGET_TYPE.LIBRARY else [],
