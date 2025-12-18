@@ -53,6 +53,7 @@ bzl_library(
         "//docs:__subpackages__",
     ],
     deps = [
+        "//d:providers",
         "//d/private:providers",
         "//d/private/rules:bitcode",
         "//d/private/rules:utils",

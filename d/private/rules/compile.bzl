@@ -4,6 +4,7 @@ load("@bazel_skylib//lib:dicts.bzl", "dicts")
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@rules_cc//cc:defs.bzl", "cc_common")
 load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
+load("//d:providers.bzl", "DSourceInfo")
 load("//d/private:providers.bzl", "DInfo")
 load("//d/private/rules:bitcode.bzl", "compile_bitcode_single_action", "compile_bitcode_to_native", "repack_native_objects")
 load("//d/private/rules:utils.bzl", "compute_object_file_names", "compute_project_root", "object_file_name", "resolve_tristate_flag", "static_library_name", "validate_sources_under_project_root")
@@ -16,7 +17,11 @@ common_attrs = {
         allow_files = D_FILE_EXTENSIONS,
         allow_empty = True,
     ),
-    "deps": attr.label_list(doc = "List of dependencies.", providers = [[CcInfo], [DInfo]]),
+    "preprocessed_srcs": attr.label(
+        doc = "The preprocessed source files.",
+        providers = [DSourceInfo],
+    ),
+    "deps": attr.label_list(doc = "List of dependencies.", providers = [[CcInfo], [DInfo], [DSourceInfo]]),
     "dopts": attr.string_list(doc = "Compiler flags."),
     "imports": attr.string_list(doc = "List of import paths."),
     "linkopts": attr.string_list(doc = "Linker flags passed via -L flags."),
@@ -129,12 +134,32 @@ def _compilation_config_from_ctx(ctx):
         project_root = compute_project_root(ctx, ctx.attr.project_root),
     )
 
+def _get_srcs(ctx):
+    preprocessed_srcs = ctx.attr.preprocessed_srcs
+    if preprocessed_srcs:
+        if ctx.files.srcs or ctx.files.hdrs or ctx.files.exports or ctx.files.string_srcs:
+            fail("preprocessed_srcs and srcs, hdrs, exports, and string_srcs cannot be used together")
+        srcs = preprocessed_srcs[DSourceInfo].srcs
+        hdrs = preprocessed_srcs[DSourceInfo].hdrs
+        exports = preprocessed_srcs[DSourceInfo].exports
+        string_srcs = preprocessed_srcs[DSourceInfo].string_srcs
+        source_map = preprocessed_srcs[DSourceInfo].source_map
+    else:
+        srcs = ctx.files.srcs
+        hdrs = ctx.files.hdrs if hasattr(ctx.files, "hdrs") else []
+        exports = ctx.files.exports if hasattr(ctx.files, "exports") else []
+        string_srcs = ctx.files.string_srcs if hasattr(ctx.files, "string_srcs") else []
+        source_map = {}
+    return srcs, hdrs, exports, string_srcs, source_map
+
 def _compilation_impl(ctx, target_type, config, toolchain, imports, string_imports, compiler_flags, versions, all_d_deps):
     compilation_mode = ctx.var["COMPILATION_MODE"]
     single_object = config.single_object
     qualified_object_file_names = config.qualified_object_file_names
     compile_via_bc = config.compile_via_bc
     use_single_action = config.use_single_action
+    project_root = config.project_root
+    srcs, hdrs, exports, string_srcs, source_map = _get_srcs(ctx)
     args = ctx.actions.args()
 
     # Apply compiler flags in order: toolchain common, toolchain per-mode, user flags
@@ -144,7 +169,7 @@ def _compilation_impl(ctx, target_type, config, toolchain, imports, string_impor
     if toolchain.compiler_flags_per_mode and compilation_mode in toolchain.compiler_flags_per_mode:
         args.add_all(toolchain.compiler_flags_per_mode[compilation_mode])
 
-    args.add_all(ctx.files.srcs)
+    args.add_all(srcs)
     args.add_all(imports.to_list(), format_each = "-I=%s")
     args.add_all(string_imports.to_list(), format_each = "-J=%s")
     args.add_all(compiler_flags.to_list())
@@ -185,10 +210,7 @@ def _compilation_impl(ctx, target_type, config, toolchain, imports, string_impor
     wrapper_script = ctx.attr._ldc_wrapper_script[DefaultInfo].files.to_list()[0]
 
     inputs = depset(
-        direct = (ctx.files.srcs + ctx.files.string_srcs +
-                  (ctx.files.hdrs if hasattr(ctx.files, "hdrs") else []) +
-                  (ctx.files.exports if hasattr(ctx.files, "exports") else []) +
-                  [wrapper_script]),
+        direct = (srcs + string_srcs + hdrs + exports + [wrapper_script]),
         transitive = [toolchain.d_compiler[DefaultInfo].default_runfiles.files] +
                      [d.interface_srcs for d in all_d_deps],
     )
@@ -213,7 +235,7 @@ def _compilation_impl(ctx, target_type, config, toolchain, imports, string_impor
                 env["LDC_SKIP_UNPACK"] = "1"
             else:
                 # Parallel mode: compute and declare individual bitcode object files
-                obj_names = compute_object_file_names(ctx, ctx.files.srcs, qualified_object_file_names, config.project_root)
+                obj_names = compute_object_file_names(ctx, srcs, qualified_object_file_names, project_root, source_map)
                 for src, obj_name in obj_names.items():
                     bc_obj_file = ctx.actions.declare_file(ctx.label.name + "_bc_objs/" + obj_name)
                     bc_objs.append(bc_obj_file)
@@ -277,11 +299,12 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
         The DInfo provider containing the compilation information.
     """
     toolchain = ctx.toolchains["//d:toolchain_type"].d_toolchain_info
+    srcs, hdrs, exports, string_srcs, source_map = _get_srcs(ctx)
 
     # Compute project root and validate sources
     project_root = compute_project_root(ctx, ctx.attr.project_root)
-    if ctx.files.srcs:
-        validate_sources_under_project_root(ctx, ctx.files.srcs, project_root)
+    if srcs:
+        validate_sources_under_project_root(ctx, srcs, project_root, source_map)
 
     # Compute import base path for DInfo propagation
     # When project_root is empty string, it means repository root
@@ -315,7 +338,7 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
         transitive = [d.imports for d in all_d_deps],
     )
     string_imports = depset(
-        ([pkg_path] if pkg_path and ctx.files.string_srcs else []) +
+        ([pkg_path] if pkg_path and string_srcs else []) +
         [paths.join(ctx.label.workspace_root, ctx.label.package, imp) for imp in ctx.attr.string_imports],
         transitive = [d.string_imports for d in all_d_deps],
     )
@@ -337,22 +360,22 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
     )
 
     # Determine which sources to export (libraries only)
-    direct_interface_srcs = ctx.files.srcs
+    direct_interface_srcs = srcs
 
     if target_type == TARGET_TYPE.LIBRARY:
         # Priority: hdrs > exports > all srcs (backward compatibility)
         public_srcs = []
-        if hasattr(ctx.files, "hdrs") and ctx.files.hdrs:
-            public_srcs.extend(ctx.files.hdrs)
-        if hasattr(ctx.files, "exports") and ctx.files.exports:
-            public_srcs.extend(ctx.files.exports)
+        if hdrs:
+            public_srcs.extend(hdrs)
+        if exports:
+            public_srcs.extend(exports)
 
         # If no hdrs/exports specified, use all srcs (backward compatibility)
         if public_srcs:
             direct_interface_srcs = public_srcs
 
     # Check if this is a header-only or deps-only library (no srcs to compile)
-    has_srcs = len(ctx.files.srcs) > 0
+    has_srcs = len(srcs) > 0
 
     config = _compilation_config_from_ctx(ctx)
     compile_via_bc = config.compile_via_bc
@@ -401,7 +424,7 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
         ),
         source_only = ctx.attr.source_only if target_type == TARGET_TYPE.LIBRARY else False,
         string_imports = depset(
-            ([import_base_path] if import_base_path and ctx.files.string_srcs else []) +
+            ([import_base_path] if import_base_path and string_srcs else []) +
             [paths.join(ctx.label.workspace_root, ctx.label.package, imp) for imp in ctx.attr.string_imports],
             transitive = [d.string_imports for d in d_deps],  # Only regular deps
         ),

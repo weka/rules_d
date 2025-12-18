@@ -132,13 +132,14 @@ def compute_project_root(ctx, project_root_attr):
         # Absolute path from repo root
         return project_root_attr.strip("/")
 
-def validate_sources_under_project_root(ctx, srcs, project_root):
+def validate_sources_under_project_root(ctx, srcs, project_root, source_map):
     """Validates that all source files are under the project root.
 
     Args:
         ctx: Rule context
         srcs: List of source files
         project_root: Project root path
+        source_map: Dictionary mapping (generated or preprocessed) source files to their expected locations
 
     Fails if any source is not under project root.
     """
@@ -147,12 +148,14 @@ def validate_sources_under_project_root(ctx, srcs, project_root):
 
     for src in srcs:
         src_path = src.short_path
+        if src_path in source_map:
+            src_path = source_map[src_path]
         if not src_path.startswith(project_root + "/") and src_path != project_root:
             fail(("Source file {} is not under project_root '{}'. " +
                  "All sources must be under the specified project root.").format(
                      src_path, project_root))
 
-def compute_object_file_names(ctx, srcs, qualified, project_root = ""):
+def compute_object_file_names(ctx, srcs, qualified, project_root = "", source_map = {}):
     """Computes expected object file names from D source files.
 
     When --oq is used, LDC creates qualified object names by replacing
@@ -163,7 +166,7 @@ def compute_object_file_names(ctx, srcs, qualified, project_root = ""):
         srcs: List of source Files
         qualified: Boolean, whether --oq flag is enabled
         project_root: Project root path (from compute_project_root)
-
+        source_map: Dictionary mapping (generated or preprocessed) source files to their expected locations
     Returns:
         Dictionary mapping source File to expected object file basename
     """
@@ -181,6 +184,8 @@ def compute_object_file_names(ctx, srcs, qualified, project_root = ""):
         if qualified:
             # Get full path from repo root
             src_path = src.short_path
+            if src_path in source_map:
+                src_path = source_map[src_path]
 
             # Compute relative path from project root
             if project_root:
