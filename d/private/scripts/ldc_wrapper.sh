@@ -8,6 +8,7 @@
 #                     If not set, just compiles normally without unpacking
 #   LDC_SKIP_UNPACK - If set, skip unpacking even if BC_UNPACK_DIR is set
 #                     Used in single-action mode where llc_archive_compiler handles unpacking
+#   LDC2_SOURCE_MAP - Path to the source map file (optional)
 #   AR_CMD          - ar command to use (default: "ar")
 
 set -e -o pipefail
@@ -16,6 +17,16 @@ set -e -o pipefail
 if [ -z "$LDC2_REAL" ]; then
     echo "Error: LDC2_REAL environment variable not set" >&2
     exit 1
+fi
+
+# TODO: this is horrible, should we make C++ or Go wrapper instead?
+if [ -n "$LDC2_SOURCE_MAP" ]; then
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        target="${line%% *}"
+        source="${line#* *}"
+        mkdir -p "$(dirname "$source")"
+        ln -srf "$PWD/$target" "$source"
+    done < "$LDC2_SOURCE_MAP"
 fi
 
 # Compile with real ldc2

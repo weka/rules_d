@@ -11,12 +11,14 @@ def _dsourceinfo_init(
     hdrs = None,
     exports = None,
     source_map = None,
+    string_srcs = None,
 ):
     return {
         "srcs": srcs or [],
         "hdrs": hdrs or [],
         "exports": exports or [],
         "source_map": source_map or {},
+        "string_srcs": string_srcs or [],
     }
 
 DSourceInfo, _new_dsourceinfo = provider(
@@ -26,6 +28,7 @@ DSourceInfo, _new_dsourceinfo = provider(
         "hdrs": "The header files.",
         "exports": "The exported source files.",
         "source_map": "The source mapping.",
+        "string_srcs": "The string source files.",
     },
     init = _dsourceinfo_init,
 )

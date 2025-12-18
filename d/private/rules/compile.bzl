@@ -8,6 +8,7 @@ load("//d:providers.bzl", "DSourceInfo")
 load("//d/private:providers.bzl", "DInfo")
 load("//d/private/rules:bitcode.bzl", "compile_bitcode_single_action", "compile_bitcode_to_native", "repack_native_objects")
 load("//d/private/rules:utils.bzl", "compute_object_file_names", "compute_project_root", "object_file_name", "resolve_tristate_flag", "static_library_name", "validate_sources_under_project_root")
+load("//d/private/rules:source_map.bzl", "write_source_map", "filter_source_map", "merge_source_maps")
 
 D_FILE_EXTENSIONS = [".d", ".di"]
 
@@ -152,7 +153,7 @@ def _get_srcs(ctx):
         source_map = {}
     return srcs, hdrs, exports, string_srcs, source_map
 
-def _compilation_impl(ctx, target_type, config, toolchain, imports, string_imports, compiler_flags, versions, all_d_deps):
+def _compilation_impl(ctx, target_type, config, toolchain, imports, string_imports, compiler_flags, versions, all_d_deps, deps_source_map):
     compilation_mode = ctx.var["COMPILATION_MODE"]
     single_object = config.single_object
     qualified_object_file_names = config.qualified_object_file_names
@@ -209,8 +210,12 @@ def _compilation_impl(ctx, target_type, config, toolchain, imports, string_impor
     # Unified compilation using ldc_wrapper.sh
     wrapper_script = ctx.attr._ldc_wrapper_script[DefaultInfo].files.to_list()[0]
 
+    source_map_file = None
+    if deps_source_map:
+        source_map_file = write_source_map(ctx, deps_source_map)
+
     inputs = depset(
-        direct = (srcs + string_srcs + hdrs + exports + [wrapper_script]),
+        direct = (srcs + string_srcs + hdrs + exports + [wrapper_script] + ([source_map_file] if source_map_file else [])),
         transitive = [toolchain.d_compiler[DefaultInfo].default_runfiles.files] +
                      [d.interface_srcs for d in all_d_deps],
     )
@@ -218,6 +223,8 @@ def _compilation_impl(ctx, target_type, config, toolchain, imports, string_impor
     # Prepare environment variables for wrapper
     env = dict(ctx.var)
     env["LDC2_REAL"] = toolchain.d_compiler[DefaultInfo].files_to_run.executable.path
+    if source_map_file:
+        env["LDC2_SOURCE_MAP"] = source_map_file.path
 
     # Declare bitcode object files if compiling via bitcode
     bc_objs = []
@@ -361,6 +368,7 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
 
     # Determine which sources to export (libraries only)
     direct_interface_srcs = srcs
+    interface_source_map = source_map  # Source map for the exported bits
 
     if target_type == TARGET_TYPE.LIBRARY:
         # Priority: hdrs > exports > all srcs (backward compatibility)
@@ -373,6 +381,12 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
         # If no hdrs/exports specified, use all srcs (backward compatibility)
         if public_srcs:
             direct_interface_srcs = public_srcs
+            interface_source_map = filter_source_map(source_map, public_srcs)
+
+    # This is what we need to compile _this_ target. We don't need to merge _our_ source map
+    # into it, because modules that are given to the compiler on the command line will be
+    # searched by their `module` statement anyway.
+    deps_source_map = merge_source_maps([d.source_map for d in all_d_deps])
 
     # Check if this is a header-only or deps-only library (no srcs to compile)
     has_srcs = len(srcs) > 0
@@ -383,7 +397,7 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
     output = None
     # Skip compilation if no sources (header-only or deps-only library)
     if has_srcs:
-        output, library_to_link = _compilation_impl(ctx, target_type, config, toolchain, imports, string_imports, compiler_flags, versions, all_d_deps)
+        output, library_to_link = _compilation_impl(ctx, target_type, config, toolchain, imports, string_imports, compiler_flags, versions, all_d_deps, deps_source_map)
 
     linker_input = None
     if library_to_link:
@@ -422,6 +436,7 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
             ctx.attr.linkopts,
             transitive = [d.linker_flags for d in d_deps],  # Only regular deps
         ),
+        source_map = merge_source_maps([interface_source_map, deps_source_map]),
         source_only = ctx.attr.source_only if target_type == TARGET_TYPE.LIBRARY else False,
         string_imports = depset(
             ([import_base_path] if import_base_path and string_srcs else []) +
