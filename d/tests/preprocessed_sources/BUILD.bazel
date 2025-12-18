@@ -1,0 +1,23 @@
+load("//d:defs.bzl", "d_library", "d_test")
+load("//d/tests/preprocessed_sources:preprocess.bzl", "preprocess")
+
+preprocess(
+    name = "preprocess",
+    srcs = [
+        "lib1.d",
+        "lib2.d",
+    ],
+)
+
+d_library(
+    name = "lib",
+    preprocessed_srcs = ":preprocess",
+)
+
+d_test(
+    name = "test",
+    srcs = ["test.d"],
+    deps = [
+        ":lib",
+    ],
+)
