@@ -105,6 +105,22 @@ library_attrs = dicts.add(
                 - "off": Use basename only (basename.o)
             """,
         ),
+        "generate_headers": attr.string(
+            default = "auto",
+            values = ["yes", "no", "auto"],
+            doc = """Controls whether to generate headers for exported sources:
+                - "yes": Always generate headers (requires toolchain.hdrgen_flags)
+                - "no": Never generate headers
+                - "auto": Follow toolchain.generate_headers setting (default)
+            """,
+        ),
+        "exports_no_hdrs": attr.label_list(
+            allow_files = D_FILE_EXTENSIONS,
+            doc = """Exported sources that should NOT go through header generation.
+                These will be exported directly as sources.
+                Useful for sources that must be available in full (e.g., for CTFE).
+            """,
+        ),
     },
 )
 
@@ -143,15 +159,17 @@ def _get_srcs(ctx):
         srcs = preprocessed_srcs[DSourceInfo].srcs
         hdrs = preprocessed_srcs[DSourceInfo].hdrs
         exports = preprocessed_srcs[DSourceInfo].exports
+        exports_no_hdrs = preprocessed_srcs[DSourceInfo].exports_no_hdrs
         string_srcs = preprocessed_srcs[DSourceInfo].string_srcs
         source_map = preprocessed_srcs[DSourceInfo].source_map
     else:
         srcs = ctx.files.srcs
         hdrs = ctx.files.hdrs if hasattr(ctx.files, "hdrs") else []
         exports = ctx.files.exports if hasattr(ctx.files, "exports") else []
+        exports_no_hdrs = ctx.files.exports_no_hdrs if hasattr(ctx.files, "exports_no_hdrs") else []
         string_srcs = ctx.files.string_srcs if hasattr(ctx.files, "string_srcs") else []
         source_map = {}
-    return srcs, hdrs, exports, string_srcs, source_map
+    return srcs, hdrs, exports, exports_no_hdrs, string_srcs, source_map
 
 def _compilation_impl(ctx, target_type, config, toolchain, imports, string_imports, compiler_flags, versions, all_d_deps, deps_source_map):
     compilation_mode = ctx.var["COMPILATION_MODE"]
@@ -160,7 +178,7 @@ def _compilation_impl(ctx, target_type, config, toolchain, imports, string_impor
     compile_via_bc = config.compile_via_bc
     use_single_action = config.use_single_action
     project_root = config.project_root
-    srcs, hdrs, exports, string_srcs, source_map = _get_srcs(ctx)
+    srcs, hdrs, exports, exports_no_hdrs, string_srcs, source_map = _get_srcs(ctx)
     args = ctx.actions.args()
 
     # Apply compiler flags in order: toolchain common, toolchain per-mode, user flags
@@ -215,7 +233,7 @@ def _compilation_impl(ctx, target_type, config, toolchain, imports, string_impor
         source_map_file = write_source_map(ctx, deps_source_map)
 
     inputs = depset(
-        direct = (srcs + string_srcs + hdrs + exports + [wrapper_script] + ([source_map_file] if source_map_file else [])),
+        direct = (srcs + string_srcs + hdrs + exports + exports_no_hdrs + [wrapper_script] + ([source_map_file] if source_map_file else [])),
         transitive = [toolchain.d_compiler[DefaultInfo].default_runfiles.files] +
                      [d.interface_srcs for d in all_d_deps],
     )
@@ -306,7 +324,7 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
         The DInfo provider containing the compilation information.
     """
     toolchain = ctx.toolchains["//d:toolchain_type"].d_toolchain_info
-    srcs, hdrs, exports, string_srcs, source_map = _get_srcs(ctx)
+    srcs, hdrs, exports, exports_no_hdrs, string_srcs, source_map = _get_srcs(ctx)
 
     # Compute project root and validate sources
     project_root = compute_project_root(ctx, ctx.attr.project_root)
@@ -371,14 +389,16 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
     interface_source_map = source_map  # Source map for the exported bits
 
     if target_type == TARGET_TYPE.LIBRARY:
-        # Priority: hdrs > exports > all srcs (backward compatibility)
+        # Priority: if either of hdrs, exports or exports_no_hdrs is specified, use them.
+        # Otherwise use all srcs (backward compatibility)
         public_srcs = []
         if hdrs:
             public_srcs.extend(hdrs)
         if exports:
             public_srcs.extend(exports)
-
-        # If no hdrs/exports specified, use all srcs (backward compatibility)
+        if exports_no_hdrs:
+            public_srcs.extend(exports_no_hdrs)
+        # If no hdrs/exports/exports_no_hdrs specified, use all srcs (backward compatibility)
         if public_srcs:
             direct_interface_srcs = public_srcs
             interface_source_map = filter_source_map(source_map, public_srcs)

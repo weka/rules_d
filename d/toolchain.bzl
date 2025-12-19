@@ -36,6 +36,7 @@ DToolchainInfo = provider(
         "single_object": "Default for single object mode (bool).",
         "compile_via_bc": "Default for bitcode compilation (bool).",
         "fat_lto": "Default for Fat LTO (bool).",
+        "generate_headers": "Default for automatic header generation (bool).",
     },
 )
 
@@ -107,6 +108,7 @@ def _d_toolchain_impl(ctx):
             single_object = config.single_object,
             compile_via_bc = config.compile_via_bc,
             fat_lto = config.fat_lto,
+            generate_headers = config.generate_headers,
             libphobos = config.libphobos,
             druntime = config.druntime,
         )
@@ -177,6 +179,7 @@ def _d_toolchain_impl(ctx):
             single_object = True,
             compile_via_bc = False,
             fat_lto = False,
+            generate_headers = False,
             libphobos = None,
             libphobos_src = [],
             druntime = None,

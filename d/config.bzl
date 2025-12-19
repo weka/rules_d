@@ -55,6 +55,7 @@ DToolchainConfigInfo = provider(
         "single_object": "Default for single object mode (bool)",
         "compile_via_bc": "Default for bitcode compilation (bool)",
         "fat_lto": "Default for Fat LTO (bool)",
+        "generate_headers": "Default for automatic header generation (bool)",
     },
 )
 
@@ -124,6 +125,7 @@ def _d_toolchain_config_impl(ctx):
             single_object = ctx.attr.single_object,
             compile_via_bc = ctx.attr.compile_via_bc,
             fat_lto = ctx.attr.fat_lto,
+            generate_headers = ctx.attr.generate_headers,
         ),
     ]
 
@@ -311,6 +313,10 @@ d_toolchain_config = rule(
         "fat_lto": attr.bool(
             default = False,
             doc = "Default for Fat LTO",
+        ),
+        "generate_headers": attr.bool(
+            default = False,
+            doc = "Default for automatic header generation from exported sources",
         ),
     },
 )
