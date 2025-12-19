@@ -14,7 +14,7 @@ def _preprocess_impl(ctx):
             mnemonic = "Preprocess",
             progress_message = "Preprocessing %s" % src.short_path,
         )
-        source_map[out_src] = src
+        source_map[out_src] = src.short_path
 
     return [DSourceInfo(
         srcs = out_srcs,

@@ -3,7 +3,7 @@
 def write_source_map(ctx, source_map):
     """Writes the source map to a file."""
     source_map_file = ctx.actions.declare_file(ctx.label.name + "_source_map.txt")
-    ctx.actions.write(source_map_file, "\n".join(["{src} {dest}".format(src=src.path, dest=dest.path) for src, dest in source_map.items()]))
+    ctx.actions.write(source_map_file, "\n".join(["{src} {dest}".format(src=src.path, dest=dest) for src, dest in source_map.items()]))
     return source_map_file
 
 def merge_source_maps(source_maps):
