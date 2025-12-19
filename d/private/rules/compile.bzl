@@ -7,6 +7,7 @@ load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
 load("//d:providers.bzl", "DSourceInfo")
 load("//d/private:providers.bzl", "DInfo")
 load("//d/private/rules:bitcode.bzl", "compile_bitcode_single_action", "compile_bitcode_to_native", "repack_native_objects")
+load("//d/private/rules:hdrgen.bzl", "generate_headers_action")
 load("//d/private/rules:utils.bzl", "compute_object_file_names", "compute_project_root", "object_file_name", "resolve_tristate_flag", "static_library_name", "validate_sources_under_project_root")
 load("//d/private/rules:source_map.bzl", "write_source_map", "filter_source_map", "merge_source_maps")
 
@@ -143,12 +144,17 @@ def _compilation_config_from_ctx(ctx):
             fail("Single object mode requested but not supported by compiler. " +
                     "Use LDC toolchain or set single_object='off'.")
     qualified_object_file_names = hasattr(ctx.attr, "qualified_object_file_names") and resolve_tristate_flag(ctx.attr.qualified_object_file_names, toolchain.qualified_object_file_names)
+    generate_headers = hasattr(ctx.attr, "generate_headers") and resolve_tristate_flag(ctx.attr.generate_headers, toolchain.generate_headers)
+    if generate_headers and not toolchain.hdrgen_flags:
+        fail("generate_headers='yes' but toolchain.hdrgen_flags is empty. " +
+             "Update your D toolchain configuration to support header generation.")
     return struct(
         compile_via_bc = compile_via_bc,
         qualified_object_file_names = qualified_object_file_names,
         single_object = single_object,
         use_single_action = single_object or len(ctx.files.srcs) == 1,
         project_root = compute_project_root(ctx, ctx.attr.project_root),
+        generate_headers = generate_headers,
     )
 
 def _get_srcs(ctx):
@@ -325,6 +331,9 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
     """
     toolchain = ctx.toolchains["//d:toolchain_type"].d_toolchain_info
     srcs, hdrs, exports, exports_no_hdrs, string_srcs, source_map = _get_srcs(ctx)
+    config = _compilation_config_from_ctx(ctx)
+    compile_via_bc = config.compile_via_bc
+    generate_headers = config.generate_headers
 
     # Compute project root and validate sources
     project_root = compute_project_root(ctx, ctx.attr.project_root)
@@ -387,6 +396,7 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
     # Determine which sources to export (libraries only)
     direct_interface_srcs = srcs
     interface_source_map = source_map  # Source map for the exported bits
+    to_hdrgen = srcs
 
     if target_type == TARGET_TYPE.LIBRARY:
         # Priority: if either of hdrs, exports or exports_no_hdrs is specified, use them.
@@ -394,15 +404,19 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
         public_srcs = []
         if hdrs:
             public_srcs.extend(hdrs)
+            to_hdrgen = []
         if exports:
             public_srcs.extend(exports)
+            to_hdrgen = exports
         if exports_no_hdrs:
             public_srcs.extend(exports_no_hdrs)
         # If no hdrs/exports/exports_no_hdrs specified, use all srcs (backward compatibility)
         if public_srcs:
             direct_interface_srcs = public_srcs
             interface_source_map = filter_source_map(source_map, public_srcs)
-
+        if generate_headers:
+            genhdrs, interface_source_map = generate_headers_action(ctx, toolchain, to_hdrgen, exports_no_hdrs, interface_source_map)
+            direct_interface_srcs = hdrs + genhdrs + exports_no_hdrs
     # This is what we need to compile _this_ target. We don't need to merge _our_ source map
     # into it, because modules that are given to the compiler on the command line will be
     # searched by their `module` statement anyway.
@@ -411,8 +425,6 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
     # Check if this is a header-only or deps-only library (no srcs to compile)
     has_srcs = len(srcs) > 0
 
-    config = _compilation_config_from_ctx(ctx)
-    compile_via_bc = config.compile_via_bc
     library_to_link = None
     output = None
     # Skip compilation if no sources (header-only or deps-only library)

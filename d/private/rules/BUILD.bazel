@@ -56,6 +56,7 @@ bzl_library(
         "//d:providers",
         "//d/private:providers",
         "//d/private/rules:bitcode",
+        "//d/private/rules:hdrgen",
         "//d/private/rules:source_map",
         "//d/private/rules:utils",
         "@bazel_skylib//lib:dicts",
@@ -112,5 +113,11 @@ bzl_library(
 bzl_library(
     name = "source_map",
     srcs = ["source_map.bzl"],
+    visibility = ["//d:__subpackages__"],
+)
+
+bzl_library(
+    name = "hdrgen",
+    srcs = ["hdrgen.bzl"],
     visibility = ["//d:__subpackages__"],
 )
