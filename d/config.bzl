@@ -5,6 +5,8 @@ which separate compiler-specific configuration from the toolchain rule itself.
 This provides flexibility to define multiple configurations for the same compiler.
 """
 
+load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
+
 DToolchainConfigInfo = provider(
     doc = """Configuration for D toolchain.
 
@@ -125,7 +127,7 @@ def _d_toolchain_config_impl(ctx):
             single_object = ctx.attr.single_object,
             compile_via_bc = ctx.attr.compile_via_bc,
             fat_lto = ctx.attr.fat_lto,
-            generate_headers = ctx.attr.generate_headers,
+            generate_headers = ctx.attr.generate_headers[BuildSettingInfo].value,
         ),
     ]
 
@@ -314,9 +316,10 @@ d_toolchain_config = rule(
             default = False,
             doc = "Default for Fat LTO",
         ),
-        "generate_headers": attr.bool(
-            default = False,
-            doc = "Default for automatic header generation from exported sources",
+        "generate_headers": attr.label(
+            default = "@rules_d//:enable_header_generation",
+            doc = "Build setting that controls the default for automatic header generation from exported sources",
+            providers = [BuildSettingInfo],
         ),
     },
 )

@@ -86,6 +86,7 @@ d_toolchain_config(
     single_object = True,
     compile_via_bc = False,
     fat_lto = False,
+    hdrgen_flags = ["-Honly"],
 )
 
 d_toolchain(
