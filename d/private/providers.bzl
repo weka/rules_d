@@ -12,7 +12,6 @@ def _dinfo_init(
         source_only = False,
         string_imports = None,
         versions = None,
-        d_exports = None,
         libs_bc = None,
         libs_non_bc = None):
     """Initializes the DInfo provider."""
@@ -27,7 +26,6 @@ def _dinfo_init(
         "source_only": source_only,
         "string_imports": string_imports or depset(),
         "versions": versions or depset(),
-        "d_exports": d_exports or depset(),
         "libs_bc": libs_bc or depset(),
         "libs_non_bc": libs_non_bc or depset(),
     }
@@ -45,7 +43,6 @@ DInfo, _new_dinfo = provider(
         "source_only": "If true, the source files are compiled, but no library is produced.",
         "string_imports": "A depset of string import paths.",
         "versions": "A depset of version identifiers.",
-        "d_exports": "A depset of exported D source files (public API).",
         "libs_bc": "A depset of bitcode library files.",
         "libs_non_bc": "A depset of non-bitcode library files.",
     },

@@ -467,10 +467,6 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
             ctx.attr.versions + global_versions,
             transitive = [d.versions for d in d_deps],  # Only regular deps
         ),
-        d_exports = depset(
-            direct_interface_srcs if target_type == TARGET_TYPE.LIBRARY else [],
-            transitive = [d.d_exports for d in d_deps if hasattr(d, "d_exports")],  # Only regular deps
-        ),
         libs_bc = depset(
             direct = [output] if (output and target_type == TARGET_TYPE.LIBRARY and compile_via_bc and not ctx.attr.source_only) else [],
             transitive = [d.libs_bc for d in d_deps if hasattr(d, "libs_bc")],
