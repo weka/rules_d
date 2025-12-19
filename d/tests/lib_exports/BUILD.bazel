@@ -1,0 +1,30 @@
+load("//d:defs.bzl", "d_library", "d_test")
+
+d_library(
+    name = "lib",
+    srcs = [
+        "api.d",
+        "impl.d",
+    ],
+    exports = [
+        "api.d",
+    ],
+    implementation_deps = [
+        ":internal",
+    ],
+)
+
+d_library(
+    name = "internal",
+    srcs = [
+        "internal.d",
+    ],
+)
+
+d_test(
+    name = "test",
+    srcs = ["test.d"],
+    deps = [
+        ":lib",
+    ],
+)
