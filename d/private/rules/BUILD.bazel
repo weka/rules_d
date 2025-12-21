@@ -121,3 +121,13 @@ bzl_library(
     srcs = ["hdrgen.bzl"],
     visibility = ["//d:__subpackages__"],
 )
+
+bzl_library(
+    name = "cycle_breaker",
+    srcs = ["cycle_breaker.bzl"],
+    visibility = ["//d:__subpackages__"],
+    deps = [
+        "//d/private:providers",
+        "//d/private/rules:compile",
+    ],
+)

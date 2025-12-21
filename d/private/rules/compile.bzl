@@ -320,12 +320,15 @@ def _compilation_impl(ctx, target_type, config, toolchain, imports, string_impor
 
     return output, library_to_link
 
-def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
+def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY, cycle_breaker = False, cycle_breaker_lib = None):
     """Defines a compilation action for D source files.
 
     Args:
         ctx: The rule context.
         target_type: The type of the target, either 'binary', 'library', or 'test'.
+        cycle_breaker: If true, the library is a cycle breaker. It will only generate headers and compute _this lib's_ exported files.
+        cycle_breaker_lib: Label of the cycle breaker library for this library. If specified, this library will skip header generation
+            and take _this lib's_ exported files from the cycle breaker library.
     Returns:
         The DInfo provider containing the compilation information.
     """
@@ -399,24 +402,28 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
     to_hdrgen = srcs
 
     if target_type == TARGET_TYPE.LIBRARY:
-        # Priority: if either of hdrs, exports or exports_no_hdrs is specified, use them.
-        # Otherwise use all srcs (backward compatibility)
-        public_srcs = []
-        if hdrs:
-            public_srcs.extend(hdrs)
-            to_hdrgen = []
-        if exports:
-            public_srcs.extend(exports)
-            to_hdrgen = exports
-        if exports_no_hdrs:
-            public_srcs.extend(exports_no_hdrs)
-        # If no hdrs/exports/exports_no_hdrs specified, use all srcs (backward compatibility)
-        if public_srcs:
-            direct_interface_srcs = public_srcs
-            interface_source_map = filter_source_map(source_map, public_srcs)
-        if generate_headers:
-            genhdrs, interface_source_map = generate_headers_action(ctx, toolchain, to_hdrgen, exports_no_hdrs, interface_source_map)
-            direct_interface_srcs = hdrs + genhdrs + exports_no_hdrs
+        if cycle_breaker_lib:
+            direct_interface_srcs = cycle_breaker_lib[DInfo].interface_srcs.to_list()
+            interface_source_map = cycle_breaker_lib[DInfo].source_map
+        else:
+            # Priority: if either of hdrs, exports or exports_no_hdrs is specified, use them.
+            # Otherwise use all srcs (backward compatibility)
+            public_srcs = []
+            if hdrs:
+                public_srcs.extend(hdrs)
+                to_hdrgen = []
+            if exports:
+                public_srcs.extend(exports)
+                to_hdrgen = exports
+            if exports_no_hdrs:
+                public_srcs.extend(exports_no_hdrs)
+            # If no hdrs/exports/exports_no_hdrs specified, use all srcs (backward compatibility)
+            if public_srcs:
+                direct_interface_srcs = public_srcs
+                interface_source_map = filter_source_map(source_map, public_srcs)
+            if generate_headers:
+                genhdrs, interface_source_map = generate_headers_action(ctx, toolchain, to_hdrgen, exports_no_hdrs, interface_source_map)
+                direct_interface_srcs = hdrs + genhdrs + exports_no_hdrs
     # This is what we need to compile _this_ target. We don't need to merge _our_ source map
     # into it, because modules that are given to the compiler on the command line will be
     # searched by their `module` statement anyway.
@@ -428,7 +435,7 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY):
     library_to_link = None
     output = None
     # Skip compilation if no sources (header-only or deps-only library)
-    if has_srcs:
+    if has_srcs and not cycle_breaker:
         output, library_to_link = _compilation_impl(ctx, target_type, config, toolchain, imports, string_imports, compiler_flags, versions, all_d_deps, deps_source_map)
 
     linker_input = None

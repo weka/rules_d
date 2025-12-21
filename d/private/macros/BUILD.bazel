@@ -1,0 +1,11 @@
+load("@bazel_lib//:bzl_library.bzl", "bzl_library")
+
+bzl_library(
+    name = "d_library_cycles",
+    srcs = ["d_library_cycles.bzl"],
+    visibility = ["//d:__subpackages__"],
+    deps = [
+        "//d/private/rules:cycle_breaker",
+        "//d/private/rules:library",
+    ],
+)

@@ -1,0 +1,16 @@
+load("//d:cycles.bzl", "d_library")
+
+d_library(
+    name = "a",
+    srcs = ["a.d"],
+    deps = [
+        # We need to depend on b here, but bazel doesn't allow cycles, so we use a cycle breaker target instead
+        ":b-cycle-breaker",
+    ],
+)
+
+d_library(
+    name = "b",
+    srcs = ["b.d"],
+    deps = [":a"],
+)

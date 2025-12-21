@@ -72,3 +72,13 @@ bzl_library(
     srcs = ["providers.bzl"],
     visibility = ["//visibility:public"],
 )
+
+bzl_library(
+    name = "cycles",
+    srcs = ["cycles.bzl"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//d/private/macros:d_library_cycles",
+        "@rules_cc//cc:defs_bzl",  # transitive dependency, for some reason bzl_library needs it
+    ],
+)
