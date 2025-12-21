@@ -1,4 +1,5 @@
 load("//d:cycles.bzl", "d_library")
+load("//d:defs.bzl", "d_test")
 
 d_library(
     name = "a",
@@ -13,4 +14,17 @@ d_library(
     name = "b",
     srcs = ["b.d"],
     deps = [":a"],
+)
+
+d_test(
+    name = "cyclic_deps_test",
+    args = [
+        "--DRT-oncycle=ignore",
+    ],
+    srcs = ["cyclic_deps_test.d"],
+    linker_script = "linker_script.lld.t",
+    deps = [
+        ":a",
+        ":b",
+    ],
 )

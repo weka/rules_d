@@ -6,3 +6,9 @@ int g(int x)
 {
     return x + a.h(x);
 }
+
+shared static this() {
+    import std.stdio;
+    writeln("b initialized");
+    a.globalVar = 2;
+}

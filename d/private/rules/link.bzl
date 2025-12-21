@@ -38,6 +38,12 @@ def link_action(ctx, d_info):
     user_link_flags.extend(ctx.attr.linkopts)
     user_link_flags.extend(d_info.linker_flags.to_list())
 
+    additional_inputs = []
+    if ctx.attr.linker_script:
+        linker_script = ctx.attr.linker_script.files.to_list()[0]
+        additional_inputs.append(linker_script)
+        user_link_flags.extend(["-T", linker_script.path])
+
     return cc_common.link(
         name = ctx.label.name,
         actions = ctx.actions,
@@ -46,4 +52,5 @@ def link_action(ctx, d_info):
         compilation_outputs = compilation_outputs,
         linking_contexts = linking_contexts,
         user_link_flags = user_link_flags,
+        additional_inputs = additional_inputs,
     ).executable

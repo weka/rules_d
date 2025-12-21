@@ -65,6 +65,7 @@ runnable_attrs = dicts.add(
     {
         "env": attr.string_dict(doc = "Environment variables for the binary at runtime. Subject of location and make variable expansion."),
         "data": attr.label_list(allow_files = True, doc = "List of files to be made available at runtime."),
+        "linker_script": attr.label(allow_single_file = True, doc = "Linker script to be used for the binary."),
         "_cc_toolchain": attr.label(
             default = "@rules_cc//cc:current_cc_toolchain",
             doc = "Default CC toolchain, used for linking. Remove after https://github.com/bazelbuild/bazel/issues/7260 is flipped (and support for old Bazel version is not needed)",
