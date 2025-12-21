@@ -44,6 +44,11 @@ def link_action(ctx, d_info):
         additional_inputs.append(linker_script)
         user_link_flags.extend(["-T", linker_script.path])
 
+    if ctx.attr.dynamic_symbols:
+        dynamic_symbols = ctx.attr.dynamic_symbols.files.to_list()[0]
+        additional_inputs.append(dynamic_symbols)
+        user_link_flags.extend(["-dynamic-list", dynamic_symbols.path])
+
     return cc_common.link(
         name = ctx.label.name,
         actions = ctx.actions,

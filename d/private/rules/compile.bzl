@@ -65,6 +65,7 @@ runnable_attrs = dicts.add(
     {
         "env": attr.string_dict(doc = "Environment variables for the binary at runtime. Subject of location and make variable expansion."),
         "data": attr.label_list(allow_files = True, doc = "List of files to be made available at runtime."),
+        "dynamic_symbols": attr.label(allow_files = True, doc = "List of dynamic symbols to be passed to the linker."),
         "linker_script": attr.label(allow_single_file = True, doc = "Linker script to be used for the binary."),
         "_cc_toolchain": attr.label(
             default = "@rules_cc//cc:current_cc_toolchain",
