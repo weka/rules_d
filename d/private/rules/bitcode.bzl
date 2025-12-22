@@ -88,7 +88,7 @@ def compile_bitcode_single_action(ctx, toolchain, bc_obj, bc_archive, output):
         arguments = [args],
         tools = tools,
         use_default_shell_env = True,  # Needed to find system llc/ar if not in toolchain
-        mnemonic = "BitcodeToNative",
+        mnemonic = "DCompileBitcode",
         progress_message = "Compiling bitcode to native %s" % ctx.label.name,
     )
 
@@ -131,7 +131,7 @@ def _compile_bitcode_parallel(ctx, toolchain, bc_objs, qualified_object_file_nam
                 outputs = [native_obj],
                 executable = toolchain.llc_compiler[DefaultInfo].files_to_run,
                 arguments = [llc_args],
-                mnemonic = "LLCcompile",
+                mnemonic = "DCompileBitcode",
                 progress_message = "Compiling bitcode to native %s" % obj_name,
             )
         else:
@@ -141,7 +141,7 @@ def _compile_bitcode_parallel(ctx, toolchain, bc_objs, qualified_object_file_nam
                 arguments = [llc_args],
                 command = "llc \"$@\"",
                 use_default_shell_env = True,
-                mnemonic = "LLCcompile",
+                mnemonic = "DCompileBitcode",
                 progress_message = "Compiling bitcode to native %s" % obj_name,
             )
 
@@ -168,7 +168,7 @@ def repack_native_objects(ctx, toolchain, native_objs, output):
             outputs = [output],
             executable = toolchain.ar_tool[DefaultInfo].files_to_run,
             arguments = [ar_args],
-            mnemonic = "ArPack",
+            mnemonic = "DLibraryArchive",
             progress_message = "Packing native objects into archive %s" % ctx.label.name,
         )
     else:
@@ -178,6 +178,6 @@ def repack_native_objects(ctx, toolchain, native_objs, output):
             arguments = [ar_args],
             command = "ar \"$@\"",
             use_default_shell_env = True,
-            mnemonic = "ArPack",
+            mnemonic = "DLibraryArchive",
             progress_message = "Packing native objects into archive %s" % ctx.label.name,
         )
