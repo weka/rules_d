@@ -6,6 +6,7 @@ Linking action for D rules.
 load("@rules_cc//cc:defs.bzl", "cc_common")
 load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
 load("//d/private/rules:cc_toolchain.bzl", "find_cc_toolchain_for_linking")
+load("//d/private/rules:utils.bzl", "resolve_tristate_flag")
 
 def link_action(ctx, d_info):
     """Linking action for D rules.
@@ -17,13 +18,21 @@ def link_action(ctx, d_info):
         A File for the linked binary.
     """
     toolchain = ctx.toolchains["//d:toolchain_type"].d_toolchain_info
+    fat_lto = resolve_tristate_flag(ctx.attr.fat_lto, toolchain.fat_lto)
+    if fat_lto:
+        linking_context = d_info.bc_linking_context
+        output = d_info.bc_output or d_info.compilation_output
+    else:
+        linking_context = d_info.linking_context
+        output = d_info.compilation_output
+
     cc_linker_info = find_cc_toolchain_for_linking(ctx)
     linking_contexts = [
-        d_info.linking_context,
+        linking_context,
         toolchain.libphobos[CcInfo].linking_context,
     ] + ([toolchain.druntime[CcInfo].linking_context] if toolchain.druntime else [])
     compilation_outputs = cc_common.create_compilation_outputs(
-        objects = depset(direct = [d_info.compilation_output] if d_info.compilation_output else None),
+        objects = depset(direct = [output] if output else None),
     )
 
     # Build linker flags in order: toolchain common, toolchain per-mode, user flags, dependency flags

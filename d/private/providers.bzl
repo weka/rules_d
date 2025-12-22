@@ -2,6 +2,8 @@
 
 def _dinfo_init(
         *,
+        bc_output = None,
+        bc_linking_context = None,
         compilation_output = None,
         compiler_flags = None,
         imports = None,
@@ -16,6 +18,8 @@ def _dinfo_init(
         libs_non_bc = None):
     """Initializes the DInfo provider."""
     return {
+        "bc_output": bc_output,
+        "bc_linking_context": bc_linking_context,
         "compilation_output": compilation_output,
         "compiler_flags": compiler_flags or depset(),
         "imports": imports or depset(),
@@ -33,6 +37,8 @@ def _dinfo_init(
 DInfo, _new_dinfo = provider(
     doc = "Provider containing D compilation information",
     fields = {
+        "bc_output": "The bitcode output of the compilation action.",
+        "bc_linking_context": "A rules_cc LinkingContext for bitcode libraries.",
         "compilation_output": "The output of the compilation action.",
         "compiler_flags": "List of compiler flags.",
         "imports": "A depset of import paths.",

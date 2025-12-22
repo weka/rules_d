@@ -23,6 +23,13 @@ d_test(
     deps = [":math_lib_bc_multi_obj"],
 )
 
+d_test(
+    name = "multi_file_bc_multi_obj_test_lto",
+    srcs = ["multi_file_test.d"],
+    fat_lto = "on",
+    deps = [":math_lib_bc_multi_obj"],
+)
+
 d_binary(
     name = "multi_file_bc_multi_obj_bin",
     srcs = ["multi_file_test.d"],

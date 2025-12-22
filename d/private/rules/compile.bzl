@@ -66,6 +66,7 @@ runnable_attrs = dicts.add(
         "env": attr.string_dict(doc = "Environment variables for the binary at runtime. Subject of location and make variable expansion."),
         "data": attr.label_list(allow_files = True, doc = "List of files to be made available at runtime."),
         "dynamic_symbols": attr.label(allow_files = True, doc = "List of dynamic symbols to be passed to the linker."),
+        "fat_lto": attr.string(default = "auto", values = ["auto", "on", "off"], doc = "Whether to use fat LTO."),
         "linker_script": attr.label(allow_single_file = True, doc = "Linker script to be used for the binary."),
         "_cc_toolchain": attr.label(
             default = "@rules_cc//cc:current_cc_toolchain",
@@ -256,11 +257,16 @@ def _compilation_impl(ctx, target_type, config, toolchain, imports, string_impor
     bc_objs = []
     bc_archive = None
     bc_obj = None
+    bc_library_to_link = None
     compile_output = output  # By default, compile directly to output
     if compile_via_bc:
         if target_type == TARGET_TYPE.LIBRARY:
             # For libraries: compile to bitcode archive
             bc_archive = ctx.actions.declare_file(ctx.label.name + ".bc.a")
+            bc_library_to_link = None if ctx.attr.source_only else cc_common.create_library_to_link(
+                actions = ctx.actions,
+                static_library = bc_archive,
+            )
             compile_output = bc_archive
 
             if use_single_action:
@@ -320,7 +326,12 @@ def _compilation_impl(ctx, target_type, config, toolchain, imports, string_impor
             if native_objs:
                 repack_native_objects(ctx, toolchain, native_objs, output)
 
-    return output, library_to_link
+    return struct(
+        native_object = output,
+        native_library_to_link = library_to_link,
+        bc_object = bc_obj,
+        bc_library_to_link = bc_library_to_link,
+    )
 
 def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY, cycle_breaker = False, cycle_breaker_lib = None):
     """Defines a compilation action for D source files.
@@ -436,15 +447,28 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY, cycle_breaker = F
 
     library_to_link = None
     output = None
+    bc_output = None
+    bc_library_to_link = None
     # Skip compilation if no sources (header-only or deps-only library)
     if has_srcs and not cycle_breaker:
-        output, library_to_link = _compilation_impl(ctx, target_type, config, toolchain, imports, string_imports, compiler_flags, versions, all_d_deps, deps_source_map)
+        compilation_result = _compilation_impl(ctx, target_type, config, toolchain, imports, string_imports, compiler_flags, versions, all_d_deps, deps_source_map)
+        library_to_link = compilation_result.native_library_to_link
+        output = compilation_result.native_object
+        bc_output = compilation_result.bc_object
+        bc_library_to_link = compilation_result.bc_library_to_link
 
     linker_input = None
     if library_to_link:
         linker_input = cc_common.create_linker_input(
             owner = ctx.label,
             libraries = depset(direct = [library_to_link] if library_to_link else None),
+            user_link_flags = ctx.attr.linkopts,
+        )
+    bc_linker_input = linker_input
+    if bc_library_to_link:
+        bc_linker_input = cc_common.create_linker_input(
+            owner = ctx.label,
+            libraries = depset(direct = [bc_library_to_link] if bc_library_to_link else None),
             user_link_flags = ctx.attr.linkopts,
         )
     linking_context = cc_common.create_linking_context(
@@ -456,8 +480,19 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY, cycle_breaker = F
             ],
         ),
     )
+    bc_linking_context = cc_common.create_linking_context(
+        linker_inputs = depset(
+            direct = [bc_linker_input] if bc_linker_input else None,
+            transitive = [
+                d.bc_linking_context.linker_inputs
+                for d in all_d_deps
+            ] + [d.linking_context.linker_inputs for d in all_c_deps],
+        ),
+    )
     # For DInfo propagation: use only regular deps (not implementation deps)
     return DInfo(
+        bc_output = bc_output,
+        bc_linking_context = bc_linking_context,
         compilation_output = output,
         compiler_flags = depset(
             ctx.attr.dopts,
