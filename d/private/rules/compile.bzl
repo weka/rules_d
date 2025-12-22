@@ -23,7 +23,7 @@ common_attrs = {
         doc = "The preprocessed source files.",
         providers = [DSourceInfo],
     ),
-    "deps": attr.label_list(doc = "List of dependencies.", providers = [[CcInfo], [DInfo], [DSourceInfo]]),
+    "deps": attr.label_list(doc = "List of dependencies.", providers = [[CcInfo], [DInfo]]),
     "dopts": attr.string_list(doc = "Compiler flags."),
     "imports": attr.string_list(doc = "List of import paths."),
     "linkopts": attr.string_list(doc = "Linker flags passed via -L flags."),
