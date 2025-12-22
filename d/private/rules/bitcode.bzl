@@ -70,6 +70,12 @@ def compile_bitcode_single_action(ctx, toolchain, bc_obj, bc_archive, output):
         for flag in toolchain.codegen_opts_common:
             args.add("--llc-flags", flag)
 
+    compilation_mode = ctx.var["COMPILATION_MODE"]
+    if toolchain.codegen_opts_per_mode:
+        codegen_opts = toolchain.codegen_opts_per_mode.get(compilation_mode, [])
+        for flag in codegen_opts:
+            args.add("--llc-flags", flag)
+
     # Get llc_archive_compiler script
     compiler_script = ctx.attr._llc_archive_compiler[DefaultInfo].files.to_list()[0]
 
