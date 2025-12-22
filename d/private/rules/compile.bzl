@@ -262,7 +262,7 @@ def _compilation_impl(ctx, target_type, config, toolchain, imports, string_impor
     if compile_via_bc:
         if target_type == TARGET_TYPE.LIBRARY:
             # For libraries: compile to bitcode archive
-            bc_archive = ctx.actions.declare_file(ctx.label.name + ".bc.a")
+            bc_archive = ctx.actions.declare_file(static_library_name(ctx, ctx.label.name + ".bc"))
             bc_library_to_link = None if ctx.attr.source_only else cc_common.create_library_to_link(
                 actions = ctx.actions,
                 static_library = bc_archive,
@@ -290,7 +290,7 @@ def _compilation_impl(ctx, target_type, config, toolchain, imports, string_impor
                 env["AR_CMD"] = "ar"
         else:
             # For binaries/tests: compile to single bitcode object file
-            bc_obj = ctx.actions.declare_file(ctx.label.name + ".bc.o")
+            bc_obj = ctx.actions.declare_file(object_file_name(ctx, ctx.label.name + ".bc"))
             compile_output = bc_obj
 
     # Stage 1: Compile (and optionally unpack if bitcode)
