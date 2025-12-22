@@ -29,8 +29,18 @@ if [ -n "$LDC2_SOURCE_MAP" ]; then
     done < "$LDC2_SOURCE_MAP"
 fi
 
+DEBUG_PREFIX_MAP=""
+if [ -n "$LDC2_DEBUG_REPO_ROOT_OVERRIDE" ]; then
+    # this is not enough when running bazel locally, since apparently
+    # D toolchain files are _not_ under the sandbox root (current dir)
+    # but are under the workspace root (root of the repo).
+    # Still, it seems to be working fine with the remote execution.
+    # TODO: find a better solution.
+    DEBUG_PREFIX_MAP="-fdebug-prefix-map=$PWD=$LDC2_DEBUG_REPO_ROOT_OVERRIDE"
+fi
+
 # Compile with real ldc2
-"$LDC2_REAL" "$@"
+"$LDC2_REAL" $DEBUG_PREFIX_MAP "$@"
 
 # If LDC_SKIP_UNPACK is set, skip unpacking (for single-action mode)
 if [ -n "$LDC_SKIP_UNPACK" ]; then

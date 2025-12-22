@@ -252,6 +252,8 @@ def _compilation_impl(ctx, target_type, config, toolchain, imports, string_impor
     env["LDC2_REAL"] = toolchain.d_compiler[DefaultInfo].files_to_run.executable.path
     if source_map_file:
         env["LDC2_SOURCE_MAP"] = source_map_file.path
+    if toolchain.debug_repo_root_override:
+        env["LDC2_DEBUG_REPO_ROOT_OVERRIDE"] = toolchain.debug_repo_root_override
 
     # Declare bitcode object files if compiling via bitcode
     bc_objs = []

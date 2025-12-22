@@ -87,6 +87,7 @@ d_toolchain_config(
     compile_via_bc = False,
     fat_lto = False,
     hdrgen_flags = ["-Honly"],
+    debug_repo_root_override = "/source",
 )
 
 d_toolchain(
