@@ -180,7 +180,7 @@ def _get_srcs(ctx):
         source_map = {}
     return srcs, hdrs, exports, exports_no_hdrs, string_srcs, source_map
 
-def _compilation_impl(ctx, target_type, config, toolchain, imports, string_imports, compiler_flags, versions, all_d_deps, deps_source_map):
+def _compilation_impl(ctx, target_type, config, toolchain, imports, string_imports, compiler_flags, versions, global_versions, all_d_deps, deps_source_map):
     compilation_mode = ctx.var["COMPILATION_MODE"]
     single_object = config.single_object
     qualified_object_file_names = config.qualified_object_file_names
@@ -204,7 +204,7 @@ def _compilation_impl(ctx, target_type, config, toolchain, imports, string_impor
 
     # Use version_flag from toolchain config
     version_flag = toolchain.version_flag if toolchain.version_flag else "-version="
-    args.add_all(versions.to_list(), format_each = version_flag + "%s")
+    args.add_all(global_versions + versions.to_list(), format_each = version_flag + "%s")
     output = None
     if target_type == TARGET_TYPE.TEST:
         args.add_all(["-main", "-unittest"])
@@ -405,7 +405,7 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY, cycle_breaker = F
         global_versions.extend(toolchain.global_versions_per_mode[compilation_mode])
 
     versions = depset(
-        ctx.attr.versions + global_versions,
+        ctx.attr.versions,
         transitive = [d.versions for d in all_d_deps],
     )
 
@@ -451,7 +451,7 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY, cycle_breaker = F
     bc_library_to_link = None
     # Skip compilation if no sources (header-only or deps-only library)
     if has_srcs and not cycle_breaker:
-        compilation_result = _compilation_impl(ctx, target_type, config, toolchain, imports, string_imports, compiler_flags, versions, all_d_deps, deps_source_map)
+        compilation_result = _compilation_impl(ctx, target_type, config, toolchain, imports, string_imports, compiler_flags, versions, global_versions, all_d_deps, deps_source_map)
         library_to_link = compilation_result.native_library_to_link
         output = compilation_result.native_object
         bc_output = compilation_result.bc_object
@@ -494,15 +494,8 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY, cycle_breaker = F
         bc_output = bc_output,
         bc_linking_context = bc_linking_context,
         compilation_output = output,
-        compiler_flags = depset(
-            ctx.attr.dopts,
-            transitive = [d.compiler_flags for d in d_deps],  # Only regular deps
-        ),
-        imports = depset(
-            ([import_base_path] if import_base_path else []) +
-            [paths.join(ctx.label.workspace_root, ctx.label.package, imp) for imp in ctx.attr.imports],
-            transitive = [d.imports for d in d_deps],  # Only regular deps
-        ),
+        compiler_flags = compiler_flags, # TODO: revisit this, is accumulating flags a good idea?
+        imports = imports,
         interface_srcs = depset(
             direct_interface_srcs + ctx.files.string_srcs,
             transitive = [d.interface_srcs for d in d_deps],  # Only regular deps
@@ -514,15 +507,8 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY, cycle_breaker = F
         ),
         source_map = merge_source_maps([interface_source_map, deps_source_map]),
         source_only = ctx.attr.source_only if target_type == TARGET_TYPE.LIBRARY else False,
-        string_imports = depset(
-            ([import_base_path] if import_base_path and string_srcs else []) +
-            [paths.join(ctx.label.workspace_root, ctx.label.package, imp) for imp in ctx.attr.string_imports],
-            transitive = [d.string_imports for d in d_deps],  # Only regular deps
-        ),
-        versions = depset(
-            ctx.attr.versions + global_versions,
-            transitive = [d.versions for d in d_deps],  # Only regular deps
-        ),
+        string_imports = string_imports,
+        versions = versions,
         libs_bc = depset(
             direct = [output] if (output and target_type == TARGET_TYPE.LIBRARY and compile_via_bc and not ctx.attr.source_only) else [],
             transitive = [d.libs_bc for d in d_deps if hasattr(d, "libs_bc")],
