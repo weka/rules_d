@@ -4,7 +4,7 @@ load("@bazel_skylib//lib:dicts.bzl", "dicts")
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@rules_cc//cc:defs.bzl", "cc_common")
 load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
-load("//d:providers.bzl", "DSourceInfo")
+load("//d:providers.bzl", "DSourceInfo", "DDepsInfo")
 load("//d/private:providers.bzl", "DInfo")
 load("//d/private/rules:bitcode.bzl", "compile_bitcode_single_action", "compile_bitcode_to_native", "repack_native_objects")
 load("//d/private/rules:hdrgen.bzl", "generate_headers_action")
@@ -23,7 +23,7 @@ common_attrs = {
         doc = "The preprocessed source files.",
         providers = [DSourceInfo],
     ),
-    "deps": attr.label_list(doc = "List of dependencies.", providers = [[CcInfo], [DInfo]]),
+    "deps": attr.label_list(doc = "List of dependencies.", providers = [[CcInfo], [DInfo], [DDepsInfo]]),
     "dopts": attr.string_list(doc = "Compiler flags."),
     "imports": attr.string_list(doc = "List of import paths."),
     "linkopts": attr.string_list(doc = "Linker flags passed via -L flags."),
@@ -98,7 +98,7 @@ library_attrs = dicts.add(
         ),
         "implementation_deps": attr.label_list(
             doc = "Private dependencies not propagated to consumers.",
-            providers = [[CcInfo], [DInfo]],
+            providers = [[CcInfo], [DInfo], [DDepsInfo]],
         ),
         "qualified_object_file_names": attr.string(
             default = "auto",
@@ -360,16 +360,28 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY, cycle_breaker = F
     # When project_root is empty string, it means repository root
     import_base_path = paths.join(ctx.label.workspace_root, project_root) if project_root else ctx.label.workspace_root
 
+    flattened_deps = []
+    for d in ctx.attr.deps:
+        if DDepsInfo not in d:
+            flattened_deps.append(d)
+        else:
+            flattened_deps.extend(d[DDepsInfo].deps)
     # Regular dependencies (propagated to consumers)
-    c_deps = [d[CcInfo] for d in ctx.attr.deps if CcInfo in d]
-    d_deps = [d[DInfo] for d in ctx.attr.deps if DInfo in d]
+    c_deps = [d[CcInfo] for d in flattened_deps if CcInfo in d]
+    d_deps = [d[DInfo] for d in flattened_deps if DInfo in d]
 
     # Implementation dependencies (not propagated to consumers)
     impl_c_deps = []
     impl_d_deps = []
     if hasattr(ctx.attr, "implementation_deps") and ctx.attr.implementation_deps:
-        impl_c_deps = [d[CcInfo] for d in ctx.attr.implementation_deps if CcInfo in d]
-        impl_d_deps = [d[DInfo] for d in ctx.attr.implementation_deps if DInfo in d]
+        flattened_impl_deps = []
+        for d in ctx.attr.implementation_deps:
+            if DDepsInfo not in d:
+                flattened_impl_deps.append(d)
+            else:
+                flattened_impl_deps.extend(d[DDepsInfo].deps)
+        impl_c_deps = [d[CcInfo] for d in flattened_impl_deps if CcInfo in d]
+        impl_d_deps = [d[DInfo] for d in flattened_impl_deps if DInfo in d]
 
     # For compilation: use ALL deps (regular + implementation)
     all_c_deps = c_deps + impl_c_deps

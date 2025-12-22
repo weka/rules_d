@@ -2,7 +2,7 @@
 """
 Public providers for D.
 
-Currently only used for pre-processed sources.
+Currently used for pre-processed sources and routing dependencies via rules.
 """
 
 def _dsourceinfo_init(
@@ -34,4 +34,20 @@ DSourceInfo, _new_dsourceinfo = provider(
         "string_srcs": "The string source files.",
     },
     init = _dsourceinfo_init,
+)
+
+def _ddepsinfo_init(
+    *,
+    deps = None,
+):
+    return {
+        "deps": deps or [],
+    }
+
+DDepsInfo, _new_ddepsinfo = provider(
+    doc = "Information about a D dependencies.",
+    fields = {
+        "deps": "The dependencies.",
+    },
+    init = _ddepsinfo_init,
 )

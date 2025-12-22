@@ -1,0 +1,26 @@
+load("//d:defs.bzl", "d_library", "d_test")
+load("//d/tests/indirect_deps:provide_deps.bzl", "provide_deps")
+
+d_library(
+    name = "lib1",
+    srcs = ["lib1.d"],
+)
+
+d_library(
+    name = "lib2",
+    srcs = ["lib2.d"],
+    deps = [":lib1"],
+)
+
+provide_deps(
+    name = "deps",
+    flag = True,
+    deps_true = [":lib1"],
+    deps_false = [":lib2"],
+)
+
+d_test(
+    name = "test",
+    srcs = ["test.d"],
+    deps = [":deps"],
+)
