@@ -23,7 +23,7 @@ def generate_headers_action(ctx, toolchain, exports, exports_no_hdrs, source_map
 
     for e in togen:
         short_path = e.short_path
-        basename = short_path[len(package) + 1:]
+        basename = short_path[len(package) + 1:] if package else short_path
         hdr = ctx.actions.declare_file(basename + "_hdrgen.di")
         args = ctx.actions.args()
         args.add_all(toolchain.hdrgen_flags)
