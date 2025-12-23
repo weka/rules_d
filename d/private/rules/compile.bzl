@@ -139,7 +139,7 @@ TARGET_TYPE = struct(
     TEST = "test",
 )
 
-def _compilation_config_from_ctx(ctx):
+def _compilation_config_from_ctx(ctx, target_type):
     toolchain = ctx.toolchains["//d:toolchain_type"].d_toolchain_info
     compile_via_bc = resolve_tristate_flag(ctx.attr.compile_via_bc, toolchain.compile_via_bc)
     if compile_via_bc:
@@ -151,6 +151,7 @@ def _compilation_config_from_ctx(ctx):
         if not toolchain.single_obj_flag:
             fail("Single object mode requested but not supported by compiler. " +
                     "Use LDC toolchain or set single_object='off'.")
+    use_single_action = (target_type != TARGET_TYPE.LIBRARY) or single_object or len(ctx.files.srcs) == 1
     qualified_object_file_names = hasattr(ctx.attr, "qualified_object_file_names") and resolve_tristate_flag(ctx.attr.qualified_object_file_names, toolchain.qualified_object_file_names)
     generate_headers = hasattr(ctx.attr, "generate_headers") and resolve_tristate_flag(ctx.attr.generate_headers, toolchain.generate_headers)
     if generate_headers and not toolchain.hdrgen_flags:
@@ -160,7 +161,7 @@ def _compilation_config_from_ctx(ctx):
         compile_via_bc = compile_via_bc,
         qualified_object_file_names = qualified_object_file_names,
         single_object = single_object,
-        use_single_action = single_object or len(ctx.files.srcs) == 1,
+        use_single_action = use_single_action,
         project_root = compute_project_root(ctx, ctx.attr.project_root),
         generate_headers = generate_headers,
     )
@@ -364,7 +365,7 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY, cycle_breaker = F
     """
     toolchain = ctx.toolchains["//d:toolchain_type"].d_toolchain_info
     srcs, hdrs, exports, exports_no_hdrs, string_srcs, source_map = _get_srcs(ctx)
-    config = _compilation_config_from_ctx(ctx)
+    config = _compilation_config_from_ctx(ctx, target_type)
     compile_via_bc = config.compile_via_bc
     generate_headers = config.generate_headers
 
