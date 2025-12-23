@@ -16,6 +16,7 @@ D_FILE_EXTENSIONS = [".d", ".di"]
 common_attrs = {
     "srcs": attr.label_list(
         doc = "List of D '.d' or '.di' source files.",
+        default = [],
         allow_files = D_FILE_EXTENSIONS,
         allow_empty = True,
     ),
@@ -23,13 +24,13 @@ common_attrs = {
         doc = "The preprocessed source files.",
         providers = [DSourceInfo],
     ),
-    "deps": attr.label_list(doc = "List of dependencies.", providers = [[CcInfo], [DInfo], [DDepsInfo]]),
-    "dopts": attr.string_list(doc = "Compiler flags."),
-    "imports": attr.string_list(doc = "List of import paths."),
-    "linkopts": attr.string_list(doc = "Linker flags passed via -L flags."),
-    "string_imports": attr.string_list(doc = "List of string import paths."),
-    "string_srcs": attr.label_list(doc = "List of string import source files.", allow_files = True),
-    "versions": attr.string_list(doc = "List of version identifiers."),
+    "deps": attr.label_list(doc = "List of dependencies.", default = [], providers = [[CcInfo], [DInfo], [DDepsInfo]]),
+    "dopts": attr.string_list(doc = "Compiler flags.", default = []),
+    "imports": attr.string_list(doc = "List of import paths.", default = []),
+    "linkopts": attr.string_list(doc = "Linker flags passed via -L flags.", default = []),
+    "string_imports": attr.string_list(doc = "List of string import paths.", default = []),
+    "string_srcs": attr.label_list(doc = "List of string import source files.", allow_files = True, default = []),
+    "versions": attr.string_list(doc = "List of version identifiers.", default = []),
     "compile_via_bc": attr.string(
         default = "auto",
         values = ["auto", "on", "off"],
@@ -91,14 +92,17 @@ library_attrs = dicts.add(
         "hdrs": attr.label_list(
             allow_files = D_FILE_EXTENSIONS,
             doc = "D header/interface files (.di) for public API.",
+            default = [],
         ),
         "exports": attr.label_list(
             allow_files = D_FILE_EXTENSIONS,
             doc = "D source files to export as public API.",
+            default = [],
         ),
         "implementation_deps": attr.label_list(
             doc = "Private dependencies not propagated to consumers.",
             providers = [[CcInfo], [DInfo], [DDepsInfo]],
+            default = [],
         ),
         "qualified_object_file_names": attr.string(
             default = "auto",
@@ -124,6 +128,7 @@ library_attrs = dicts.add(
                 These will be exported directly as sources.
                 Useful for sources that must be available in full (e.g., for CTFE).
             """,
+            default = [],
         ),
     },
 )
