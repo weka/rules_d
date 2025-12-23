@@ -433,8 +433,8 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY, cycle_breaker = F
             direct_interface_srcs = cycle_breaker_lib[DInfo].interface_srcs.to_list()
             interface_source_map = cycle_breaker_lib[DInfo].source_map
         else:
-            # Priority: if either of hdrs, exports or exports_no_hdrs is specified, use them.
-            # Otherwise use all srcs (backward compatibility)
+            # Priority: if either of hdrs, exports is specified, use them.
+            # Otherwise export all srcs (backward compatibility)
             public_srcs = []
             if hdrs:
                 public_srcs.extend(hdrs)
@@ -442,15 +442,13 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY, cycle_breaker = F
             if exports:
                 public_srcs.extend(exports)
                 to_hdrgen = exports
-            if exports_no_hdrs:
-                public_srcs.extend(exports_no_hdrs)
-            # If no hdrs/exports/exports_no_hdrs specified, use all srcs (backward compatibility)
+            # If no hdrs/exports specified, use all srcs (backward compatibility)
             if public_srcs:
                 direct_interface_srcs = public_srcs
-                interface_source_map = filter_source_map(source_map, public_srcs)
             if generate_headers:
                 genhdrs, interface_source_map = generate_headers_action(ctx, toolchain, to_hdrgen, exports_no_hdrs, interface_source_map)
                 direct_interface_srcs = hdrs + genhdrs + exports_no_hdrs
+            interface_source_map = filter_source_map(source_map, direct_interface_srcs)
     # This is what we need to compile _this_ target. We don't need to merge _our_ source map
     # into it, because modules that are given to the compiler on the command line will be
     # searched by their `module` statement anyway.
