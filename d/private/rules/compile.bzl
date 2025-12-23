@@ -111,11 +111,11 @@ library_attrs = dicts.add(
         ),
         "generate_headers": attr.string(
             default = "auto",
-            values = ["yes", "no", "auto"],
+            values = ["auto", "on", "off"],
             doc = """Controls whether to generate headers for exported sources:
-                - "yes": Always generate headers (requires toolchain.hdrgen_flags)
-                - "no": Never generate headers
-                - "auto": Follow toolchain.generate_headers setting (default)
+                - "auto": Use toolchain default
+                - "on": Always generate headers (requires toolchain.hdrgen_flags)
+                - "off": Never generate headers
             """,
         ),
         "exports_no_hdrs": attr.label_list(
@@ -149,7 +149,7 @@ def _compilation_config_from_ctx(ctx):
     qualified_object_file_names = hasattr(ctx.attr, "qualified_object_file_names") and resolve_tristate_flag(ctx.attr.qualified_object_file_names, toolchain.qualified_object_file_names)
     generate_headers = hasattr(ctx.attr, "generate_headers") and resolve_tristate_flag(ctx.attr.generate_headers, toolchain.generate_headers)
     if generate_headers and not toolchain.hdrgen_flags:
-        fail("generate_headers='yes' but toolchain.hdrgen_flags is empty. " +
+        fail("generate_headers='on' but toolchain.hdrgen_flags is empty. " +
              "Update your D toolchain configuration to support header generation.")
     return struct(
         compile_via_bc = compile_via_bc,
