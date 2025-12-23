@@ -148,8 +148,8 @@ def validate_sources_under_project_root(ctx, srcs, project_root, source_map):
 
     for src in srcs:
         src_path = src.short_path
-        if src.path in source_map:
-            src_path = source_map[src.path].path
+        if src in source_map:
+            src_path = source_map[src]
         if not src_path.startswith(project_root + "/") and src_path != project_root:
             fail(("Source file {} is not under project_root '{}'. " +
                  "All sources must be under the specified project root.").format(
