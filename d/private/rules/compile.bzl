@@ -168,7 +168,13 @@ def _compilation_config_from_ctx(ctx):
 def _get_srcs(ctx):
     preprocessed_srcs = ctx.attr.preprocessed_srcs
     if preprocessed_srcs:
-        if ctx.files.srcs or ctx.files.hdrs or ctx.files.exports or ctx.files.string_srcs:
+        if any([
+            ctx.files.srcs,
+            (hasattr(ctx.files, "hdrs") and ctx.files.hdrs),
+            (hasattr(ctx.files, "exports") and ctx.files.exports),
+            (hasattr(ctx.files, "string_srcs") and ctx.files.string_srcs),
+            (hasattr(ctx.files, "exports_no_hdrs") and ctx.files.exports_no_hdrs),
+        ]):
             fail("preprocessed_srcs and srcs, hdrs, exports, and string_srcs cannot be used together")
         srcs = preprocessed_srcs[DSourceInfo].srcs
         hdrs = preprocessed_srcs[DSourceInfo].hdrs
