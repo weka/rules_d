@@ -452,7 +452,7 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY, cycle_breaker = F
             if generate_headers:
                 genhdrs, interface_source_map = generate_headers_action(ctx, toolchain, to_hdrgen, exports_no_hdrs, interface_source_map)
                 direct_interface_srcs = hdrs + genhdrs + exports_no_hdrs
-            interface_source_map = filter_source_map(source_map, direct_interface_srcs)
+            interface_source_map = filter_source_map(interface_source_map, direct_interface_srcs)
     deps_source_map = merge_source_maps([d.source_map for d in all_d_deps])
     our_source_map = merge_source_maps([source_map, deps_source_map])
     export_source_map = merge_source_maps([interface_source_map, deps_source_map])
