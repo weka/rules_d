@@ -197,7 +197,11 @@ def _compilation_impl(ctx, target_type, config, toolchain, imports, string_impor
     if toolchain.compiler_flags_per_mode and compilation_mode in toolchain.compiler_flags_per_mode:
         args.add_all(toolchain.compiler_flags_per_mode[compilation_mode])
 
-    args.add_all(srcs)
+    for src in srcs:
+        if src in source_map:
+            args.add(source_map[src])
+        else:
+            args.add(src)
     args.add_all(imports.to_list(), format_each = "-I=%s")
     args.add_all(string_imports.to_list(), format_each = "-J=%s")
     args.add_all(compiler_flags.to_list())
@@ -449,10 +453,9 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY, cycle_breaker = F
                 genhdrs, interface_source_map = generate_headers_action(ctx, toolchain, to_hdrgen, exports_no_hdrs, interface_source_map)
                 direct_interface_srcs = hdrs + genhdrs + exports_no_hdrs
             interface_source_map = filter_source_map(source_map, direct_interface_srcs)
-    # This is what we need to compile _this_ target. We don't need to merge _our_ source map
-    # into it, because modules that are given to the compiler on the command line will be
-    # searched by their `module` statement anyway.
     deps_source_map = merge_source_maps([d.source_map for d in all_d_deps])
+    our_source_map = merge_source_maps([source_map, deps_source_map])
+    export_source_map = merge_source_maps([interface_source_map, deps_source_map])
 
     # Check if this is a header-only or deps-only library (no srcs to compile)
     has_srcs = len(srcs) > 0
@@ -463,7 +466,7 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY, cycle_breaker = F
     bc_library_to_link = None
     # Skip compilation if no sources (header-only or deps-only library)
     if has_srcs and not cycle_breaker:
-        compilation_result = _compilation_impl(ctx, target_type, config, toolchain, imports, string_imports, compiler_flags, versions, global_versions, all_d_deps, deps_source_map)
+        compilation_result = _compilation_impl(ctx, target_type, config, toolchain, imports, string_imports, compiler_flags, versions, global_versions, all_d_deps, our_source_map)
         library_to_link = compilation_result.native_library_to_link
         output = compilation_result.native_object
         bc_output = compilation_result.bc_object
@@ -517,7 +520,7 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY, cycle_breaker = F
             ctx.attr.linkopts,
             transitive = [d.linker_flags for d in d_deps],  # Only regular deps
         ),
-        source_map = merge_source_maps([interface_source_map, deps_source_map]),
+        source_map = export_source_map,
         source_only = ctx.attr.source_only if target_type == TARGET_TYPE.LIBRARY else False,
         string_imports = string_imports,
         versions = versions,
