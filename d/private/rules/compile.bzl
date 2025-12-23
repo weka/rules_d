@@ -28,7 +28,7 @@ common_attrs = {
     "imports": attr.string_list(doc = "List of import paths."),
     "linkopts": attr.string_list(doc = "Linker flags passed via -L flags."),
     "string_imports": attr.string_list(doc = "List of string import paths."),
-    "string_srcs": attr.label_list(doc = "List of string import source files."),
+    "string_srcs": attr.label_list(doc = "List of string import source files.", allow_files = True),
     "versions": attr.string_list(doc = "List of version identifiers."),
     "compile_via_bc": attr.string(
         default = "auto",
