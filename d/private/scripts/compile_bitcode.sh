@@ -44,11 +44,11 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         --llc)
-            LLC_CMD="$2"
+            LLC_CMD="$(realpath $2)"
             shift 2
             ;;
         --ar)
-            AR_CMD="$2"
+            AR_CMD="$(realpath $2)"
             shift 2
             ;;
         --llc-flags)
