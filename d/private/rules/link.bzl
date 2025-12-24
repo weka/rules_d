@@ -19,6 +19,21 @@ def link_action(ctx, d_info):
     """
     toolchain = ctx.toolchains["//d:toolchain_type"].d_toolchain_info
     fat_lto = resolve_tristate_flag(ctx.attr.fat_lto, toolchain.fat_lto)
+    druntime = None
+    mode = ctx.var["COMPILATION_MODE"]
+    if fat_lto:
+        mode = "lto"  # use special mode for LTO
+    if toolchain.druntime_per_mode and mode in toolchain.druntime_per_mode:
+        druntime = toolchain.druntime_per_mode[mode]
+    if not druntime and toolchain.druntime:
+        druntime = toolchain.druntime
+    libphobos = None
+    if toolchain.libphobos_per_mode and mode in toolchain.libphobos_per_mode:
+        libphobos = toolchain.libphobos_per_mode[mode]
+    if not libphobos and toolchain.libphobos:
+        libphobos = toolchain.libphobos
+    if not libphobos:
+        fail("No Phobos library found for mode: %s" % mode)
     if fat_lto:
         linking_context = d_info.bc_linking_context
         output = d_info.bc_output or d_info.compilation_output
@@ -29,8 +44,8 @@ def link_action(ctx, d_info):
     cc_linker_info = find_cc_toolchain_for_linking(ctx)
     linking_contexts = [
         linking_context,
-        toolchain.libphobos[CcInfo].linking_context,
-    ] + ([toolchain.druntime[CcInfo].linking_context] if toolchain.druntime else [])
+        libphobos[CcInfo].linking_context,
+    ] + ([druntime[CcInfo].linking_context] if druntime else [])
     compilation_outputs = cc_common.create_compilation_outputs(
         objects = depset(direct = [output] if output else None),
     )
