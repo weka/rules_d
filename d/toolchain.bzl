@@ -181,9 +181,7 @@ def _d_toolchain_impl(ctx):
             fat_lto = False,
             generate_headers = False,
             libphobos = None,
-            libphobos_src = [],
             druntime = None,
-            druntime_src = [],
         )
 
         # Export all the providers inside our ToolchainInfo
