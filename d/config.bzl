@@ -27,7 +27,9 @@ DToolchainConfigInfo = provider(
 
         # Standard libraries
         "libphobos": "Phobos library, optional",
+        "libphobos_per_mode": "Phobos library per mode (dict: mode -> label, optional)",
         "druntime": "D runtime library, optional",
+        "druntime_per_mode": "D runtime library per mode (LDC only, dict: mode -> label, optional)",
 
         # Common flags (applied to all builds)
         "compiler_flags": "Common compilation flags (list)",
@@ -98,6 +100,23 @@ def _d_toolchain_config_impl(ctx):
         "opt": ctx.attr.versions_opt,
     }
 
+    libphobos_per_mode = {}
+    druntime_per_mode = {}
+    if ctx.attr.libphobos_fastbuild:
+        libphobos_per_mode["fastbuild"] = ctx.attr.libphobos_fastbuild
+    if ctx.attr.libphobos_dbg:
+        libphobos_per_mode["dbg"] = ctx.attr.libphobos_dbg
+    if ctx.attr.libphobos_opt:
+        libphobos_per_mode["opt"] = ctx.attr.libphobos_opt
+    if ctx.attr.druntime_fastbuild:
+        druntime_per_mode["fastbuild"] = ctx.attr.druntime_fastbuild
+    if ctx.attr.druntime_dbg:
+        druntime_per_mode["dbg"] = ctx.attr.druntime_dbg
+    if ctx.attr.druntime_opt:
+        druntime_per_mode["opt"] = ctx.attr.druntime_opt
+    if ctx.attr.druntime_lto:
+        druntime_per_mode["lto"] = ctx.attr.druntime_lto
+
     return [
         DToolchainConfigInfo(
             d_compiler = ctx.attr.d_compiler,
@@ -107,7 +126,9 @@ def _d_toolchain_config_impl(ctx):
             dub_tool = ctx.attr.dub_tool,
             rdmd_tool = ctx.attr.rdmd_tool,
             libphobos = ctx.attr.libphobos,
+            libphobos_per_mode = libphobos_per_mode,
             druntime = ctx.attr.druntime,
+            druntime_per_mode = druntime_per_mode,
             compiler_flags = compiler_flags,
             linker_flags = linker_flags,
             codegen_opts_common = ctx.attr.codegen_opts_common,
@@ -189,10 +210,33 @@ d_toolchain_config = rule(
         "libphobos": attr.label(
             doc = "Phobos library file",
         ),
+        "libphobos_dbg": attr.label(
+            doc = "Phobos library file for debug mode",
+        ),
+        "libphobos_opt": attr.label(
+            doc = "Phobos library file for optimized mode",
+        ),
+        "libphobos_fastbuild": attr.label(
+            doc = "Phobos library file for fastbuild mode",
+        ),
+        "libphobos_lto": attr.label(
+            doc = "Phobos library file for LTO mode",
+        ),
         "druntime": attr.label(
             doc = "D runtime library file",
         ),
-
+        "druntime_dbg": attr.label(
+            doc = "D runtime library file for debug mode",
+        ),
+        "druntime_opt": attr.label(
+            doc = "D runtime library file for optimized mode",
+        ),
+        "druntime_fastbuild": attr.label(
+            doc = "D runtime library file for fastbuild mode",
+        ),
+        "druntime_lto": attr.label(
+            doc = "D runtime library file for LTO mode",
+        ),
         # Common flags (applied to all compilation modes)
         "compiler_flags": attr.string_list(
             default = [],

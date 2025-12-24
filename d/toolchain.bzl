@@ -10,8 +10,10 @@ DToolchainInfo = provider(
         "compiler_flags": "Default compiler flags.",
         "d_compiler": "The D compiler executable.",
         "druntime": "The D runtime library. (LDC only)",
+        "druntime_per_mode": "The D runtime library per mode (LDC only, dict: mode -> label, optional).",
         "dub_tool": "The dub package manager executable.",
         "libphobos": "The Phobos library.",
+        "libphobos_per_mode": "The Phobos library per mode (dict: mode -> label, optional).",
         "linker_flags": "Default linker flags.",
         "rdmd_tool": "The rdmd compile and execute utility.",
 
@@ -110,7 +112,9 @@ def _d_toolchain_impl(ctx):
             fat_lto = config.fat_lto,
             generate_headers = config.generate_headers,
             libphobos = config.libphobos,
+            libphobos_per_mode = config.libphobos_per_mode,
             druntime = config.druntime,
+            druntime_per_mode = config.druntime_per_mode,
         )
 
         # Make the $(tool_BIN) variable available in places like genrules.
@@ -181,7 +185,9 @@ def _d_toolchain_impl(ctx):
             fat_lto = False,
             generate_headers = False,
             libphobos = None,
+            libphobos_per_mode = None,
             druntime = None,
+            druntime_per_mode = None,
         )
 
         # Export all the providers inside our ToolchainInfo
