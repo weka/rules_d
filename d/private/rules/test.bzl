@@ -1,6 +1,7 @@
 """D test rule for compiling and running D unit tests."""
 
 load("@bazel_lib//lib:expand_make_vars.bzl", "expand_variables")
+load("@bazel_skylib//lib:dicts.bzl", "dicts")
 load("@rules_cc//cc:find_cc_toolchain.bzl", "use_cc_toolchain")
 load("//d/private/rules:compile.bzl", "TARGET_TYPE", "compilation_action", "runnable_attrs")
 load("//d/private/rules:link.bzl", "link_action")
@@ -23,7 +24,9 @@ def _d_test_impl(ctx):
 
 d_test = rule(
     implementation = _d_test_impl,
-    attrs = runnable_attrs,
+    attrs = dicts.add(runnable_attrs, {
+        "add_main": attr.bool(default = True, doc = "Whether to add -main to the compiler flags."),
+    }),
     toolchains = ["//d:toolchain_type"] + use_cc_toolchain(),
     fragments = ["cpp"],
     test = True,

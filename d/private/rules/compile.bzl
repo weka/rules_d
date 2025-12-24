@@ -223,7 +223,9 @@ def _compilation_impl(ctx, target_type, config, toolchain, imports, string_impor
     args.add_all(global_versions + versions.to_list(), format_each = version_flag + "%s")
     output = None
     if target_type == TARGET_TYPE.TEST:
-        args.add_all(["-main", "-unittest"])
+        args.add("-unittest")
+        if ctx.attr.add_main:
+            args.add("-main")
     if target_type == TARGET_TYPE.LIBRARY:
         # Always use lib_flags to create archive
         args.add_all(toolchain.lib_flags)
