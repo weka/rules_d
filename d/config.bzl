@@ -60,6 +60,7 @@ DToolchainConfigInfo = provider(
         "compile_via_bc": "Default for bitcode compilation (bool)",
         "fat_lto": "Default for Fat LTO (bool)",
         "generate_headers": "Default for automatic header generation (bool)",
+        "link_with_d": "Default for using the D compiler for linking (bool)",
     },
 )
 
@@ -149,6 +150,7 @@ def _d_toolchain_config_impl(ctx):
             compile_via_bc = ctx.attr.compile_via_bc,
             fat_lto = ctx.attr.fat_lto,
             generate_headers = ctx.attr.generate_headers[BuildSettingInfo].value,
+            link_with_d = ctx.attr.link_with_d,
         ),
     ]
 
@@ -364,6 +366,10 @@ d_toolchain_config = rule(
             default = "@rules_d//:enable_header_generation",
             doc = "Build setting that controls the default for automatic header generation from exported sources",
             providers = [BuildSettingInfo],
+        ),
+        "link_with_d": attr.bool(
+            default = False,
+            doc = "Default for using the D compiler for linking",
         ),
     },
 )
