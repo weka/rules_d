@@ -69,6 +69,7 @@ runnable_attrs = dicts.add(
         "dynamic_symbols": attr.label(allow_files = True, doc = "List of dynamic symbols to be passed to the linker."),
         "fat_lto": attr.string(default = "auto", values = ["auto", "on", "off"], doc = "Whether to use fat LTO."),
         "linker_script": attr.label(allow_single_file = True, doc = "Linker script to be used for the binary."),
+        "link_with_d": attr.string(default = "auto", values = ["auto", "on", "off"], doc = "Whether to use the D compiler for linking."),
         "_cc_toolchain": attr.label(
             default = "@rules_cc//cc:current_cc_toolchain",
             doc = "Default CC toolchain, used for linking. Remove after https://github.com/bazelbuild/bazel/issues/7260 is flipped (and support for old Bazel version is not needed)",

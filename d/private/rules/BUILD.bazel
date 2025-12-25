@@ -131,3 +131,13 @@ bzl_library(
         "//d/private/rules:compile",
     ],
 )
+
+bzl_library(
+    name = "link_with_d",
+    srcs = ["link_with_d.bzl"],
+    visibility = ["//d:__subpackages__"],
+    deps = [
+        "//d/private/rules:cc_toolchain",
+        "@rules_cc//cc:defs_bzl",
+    ],
+)

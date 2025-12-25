@@ -6,6 +6,7 @@ Linking action for D rules.
 load("@rules_cc//cc:defs.bzl", "cc_common")
 load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
 load("//d/private/rules:cc_toolchain.bzl", "find_cc_toolchain_for_linking")
+load("//d/private/rules:link_with_d.bzl", "link_with_d_action")
 load("//d/private/rules:utils.bzl", "resolve_tristate_flag")
 
 def link_action(ctx, d_info):
@@ -18,7 +19,10 @@ def link_action(ctx, d_info):
         A File for the linked binary.
     """
     toolchain = ctx.toolchains["//d:toolchain_type"].d_toolchain_info
+    link_with_d = resolve_tristate_flag(ctx.attr.link_with_d, toolchain.link_with_d)
     fat_lto = resolve_tristate_flag(ctx.attr.fat_lto, toolchain.fat_lto)
+    if link_with_d:
+        return link_with_d_action(ctx, d_info, fat_lto)
     druntime = None
     mode = ctx.var["COMPILATION_MODE"]
     if fat_lto:
