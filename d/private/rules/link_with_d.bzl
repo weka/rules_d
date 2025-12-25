@@ -17,7 +17,12 @@ def link_with_d_action(ctx, d_info, fat_lto):
         A File for the linked binary.
     """
     toolchain = ctx.toolchains["//d:toolchain_type"].d_toolchain_info
+    mode = ctx.var["COMPILATION_MODE"]
     args = ctx.actions.args()
+    if toolchain.linker_flags_for_d:
+        args.add_all(toolchain.linker_flags_for_d)
+    if toolchain.linker_flags_for_d_per_mode and mode in toolchain.linker_flags_for_d_per_mode:
+        args.add_all(toolchain.linker_flags_for_d_per_mode[mode])
     args.add_all(toolchain.linker_flags, format_each = "-L=%s")
     args.add_all(d_info.linker_flags.to_list(), format_each = "-L=%s")
     if fat_lto:
