@@ -202,6 +202,12 @@ def compute_object_file_names(ctx, srcs, qualified, project_root = "", source_ma
             elif rel_path.endswith(".di"):
                 rel_path = rel_path[:-3]
 
+            # package.d is a special case
+            if rel_path.endswith("/package"):
+                rel_path = rel_path[:-8]
+            elif rel_path.endswith("package"):
+                rel_path = rel_path[:-7]
+
             # Convert path to module name (slashes to dots)
             module_name = rel_path.replace("/", ".")
             obj_name = module_name + obj_ext
