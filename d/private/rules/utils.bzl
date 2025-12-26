@@ -184,8 +184,8 @@ def compute_object_file_names(ctx, srcs, qualified, project_root = "", source_ma
         if qualified:
             # Get full path from repo root
             src_path = src.short_path
-            if src.path in source_map:
-                src_path = source_map[src.path].path
+            if src in source_map:
+                src_path = source_map[src]
 
             # Compute relative path from project root
             if project_root:
