@@ -352,7 +352,7 @@ def _compilation_impl(ctx, target_type, config, toolchain, imports, string_impor
             compile_bitcode_single_action(ctx, toolchain, bc_obj, bc_archive, output)
         else:
             # Parallel mode: Stage 2 - Compile bitcode objects to native
-            native_objs = compile_bitcode_to_native(ctx, toolchain, bc_archive, bc_objs, single_object, qualified_object_file_names, config.project_root)
+            native_objs = compile_bitcode_to_native(ctx, toolchain, bc_objs)
 
             # Stage 3: Repack native objects into final archive (only if not single-action)
             if native_objs:

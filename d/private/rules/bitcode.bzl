@@ -1,33 +1,5 @@
 """Bitcode compilation support for D rules."""
 
-load("//d/private/rules:utils.bzl", "compute_object_file_names")
-
-def compile_bitcode_to_native(ctx, toolchain, bc_archive, bc_objs, single_object, qualified_object_file_names, project_root):
-    """Stage 2: Compile bitcode objects to native objects with llc.
-
-    Args:
-        ctx: The rule context
-        toolchain: The D toolchain
-        bc_archive: Bitcode archive File (for single-action mode)
-        bc_objs: List of bitcode object Files (for parallel mode, may be empty)
-        single_object: Boolean, whether single-object mode is enabled
-        qualified_object_file_names: Boolean, whether qualified names are used
-        project_root: Project root path (from compute_project_root)
-
-    Returns:
-        List of native object Files (or single File for single-action archive mode)
-    """
-    # Detect single-action mode: single_object or only one source file
-    use_single_action = single_object or len(ctx.files.srcs) == 1
-
-    if use_single_action:
-        # Single-action mode: use llc_archive_compiler.sh to handle full workflow
-        # Note: In single-action mode, we return None to indicate that repacking is not needed
-        return None
-    else:
-        # Parallel mode: compile each bitcode object separately
-        return _compile_bitcode_parallel(ctx, toolchain, bc_objs, qualified_object_file_names, project_root)
-
 def compile_bitcode_single_action(ctx, toolchain, bc_obj, bc_archive, output):
     """Compile bitcode in a single action.
 
@@ -98,28 +70,22 @@ def compile_bitcode_single_action(ctx, toolchain, bc_obj, bc_archive, output):
         progress_message = "Compiling bitcode to native %s" % ctx.label.name,
     )
 
-def _compile_bitcode_parallel(ctx, toolchain, bc_objs, qualified_object_file_names, project_root):
+def compile_bitcode_to_native(ctx, toolchain, bc_objs):
     """Compile bitcode objects in parallel (existing behavior).
 
     Args:
         ctx: The rule context
         toolchain: The D toolchain
         bc_objs: List of bitcode object Files
-        qualified_object_file_names: Boolean, whether qualified names are used
-        project_root: Project root path (from compute_project_root)
 
     Returns:
         List of native object Files
     """
     native_objs = []
 
-    # Compute expected object file names from sources
-    obj_names = compute_object_file_names(ctx, ctx.files.srcs, qualified_object_file_names, project_root)
-
-    for src, obj_name in obj_names.items():
+    for bc_obj in bc_objs:
         # Declare corresponding bitcode and native object files
-        bc_obj = ctx.actions.declare_file(ctx.label.name + "_bc_objs/" + obj_name)
-        native_obj = ctx.actions.declare_file(ctx.label.name + "_native_objs/" + obj_name)
+        native_obj = ctx.actions.declare_file(ctx.label.name + "_native_objs/" + bc_obj.basename)
         native_objs.append(native_obj)
 
         # Compile bitcode to native with llc
@@ -138,7 +104,7 @@ def _compile_bitcode_parallel(ctx, toolchain, bc_objs, qualified_object_file_nam
                 executable = toolchain.llc_compiler[DefaultInfo].files_to_run,
                 arguments = [llc_args],
                 mnemonic = "DCompileBitcode",
-                progress_message = "Compiling bitcode to native %s" % obj_name,
+                progress_message = "Compiling bitcode to native %s" % bc_obj.basename,
             )
         else:
             ctx.actions.run_shell(
@@ -148,7 +114,7 @@ def _compile_bitcode_parallel(ctx, toolchain, bc_objs, qualified_object_file_nam
                 command = "llc \"$@\"",
                 use_default_shell_env = True,
                 mnemonic = "DCompileBitcode",
-                progress_message = "Compiling bitcode to native %s" % obj_name,
+                progress_message = "Compiling bitcode to native %s" % bc_obj.basename,
             )
 
     return native_objs
