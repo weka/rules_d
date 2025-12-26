@@ -131,6 +131,10 @@ library_attrs = dicts.add(
             """,
             default = [],
         ),
+        "alwayslink": attr.bool(
+            default = False,
+            doc = "If true, the library is always linked.",
+        ),
     },
 )
 
@@ -242,6 +246,7 @@ def _compilation_impl(ctx, target_type, config, toolchain, imports, string_impor
         library_to_link = None if ctx.attr.source_only else cc_common.create_library_to_link(
             actions = ctx.actions,
             static_library = output,
+            alwayslink = ctx.attr.alwayslink,
         )
     else:
         # Binary and test targets: compile to object file with -c
@@ -287,6 +292,7 @@ def _compilation_impl(ctx, target_type, config, toolchain, imports, string_impor
             bc_library_to_link = None if ctx.attr.source_only else cc_common.create_library_to_link(
                 actions = ctx.actions,
                 static_library = bc_archive,
+                alwayslink = ctx.attr.alwayslink,
             )
             compile_output = bc_archive
 
