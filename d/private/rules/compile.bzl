@@ -202,14 +202,14 @@ def _get_srcs(ctx):
         source_map = {}
     return srcs, hdrs, exports, exports_no_hdrs, string_srcs, source_map
 
-def _compilation_impl(ctx, target_type, config, toolchain, imports, string_imports, compiler_flags, versions, global_versions, all_d_deps, deps_source_map):
+def _compilation_impl(ctx, target_type, config, toolchain, imports, string_imports, compiler_flags, versions, global_versions, all_d_deps, source_map):
     compilation_mode = ctx.var["COMPILATION_MODE"]
     single_object = config.single_object
     qualified_object_file_names = config.qualified_object_file_names
     compile_via_bc = config.compile_via_bc
     use_single_action = config.use_single_action
     project_root = config.project_root
-    srcs, hdrs, exports, exports_no_hdrs, string_srcs, source_map = _get_srcs(ctx)
+    srcs, hdrs, exports, exports_no_hdrs, string_srcs, _unused_source_map = _get_srcs(ctx)
     args = ctx.actions.args()
 
     # Apply compiler flags in order: toolchain common, toolchain per-mode, user flags
@@ -267,8 +267,8 @@ def _compilation_impl(ctx, target_type, config, toolchain, imports, string_impor
     wrapper_script = ctx.attr._ldc_wrapper_script[DefaultInfo].files.to_list()[0]
 
     source_map_file = None
-    if deps_source_map:
-        source_map_file = write_source_map(ctx, deps_source_map)
+    if source_map:
+        source_map_file = write_source_map(ctx, source_map)
 
     inputs = depset(
         direct = (srcs + string_srcs + hdrs + exports + exports_no_hdrs + [wrapper_script] + ([source_map_file] if source_map_file else [])),
