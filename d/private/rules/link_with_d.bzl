@@ -32,6 +32,7 @@ def link_with_d_action(ctx, d_info, fat_lto):
         object = d_info.compilation_output
     context = d_info.linking_context if not fat_lto else d_info.bc_linking_context
     libraries = []
+    alwayslink_libraries = []
     for linker_input in context.linker_inputs.to_list():
         args.add_all(linker_input.user_link_flags, format_each = "-L=%s")
         # ok, this is a shady part. Unless we disable "supports_pic" feature in the cc_toolchain,
@@ -40,13 +41,33 @@ def link_with_d_action(ctx, d_info, fat_lto):
         for lib in linker_input.libraries:
             if not lib.static_library:
                 fail("Library produced by %s has no static library, need to disable supports_pic feature in the cc_toolchain?" % linker_input.owner)
-            libraries.append(lib.static_library)
+            if lib.alwayslink:
+                alwayslink_libraries.append(lib.static_library)
+            else:
+                libraries.append(lib.static_library)
     if not object:
         # ldc can't link without an object file
         empty_object = ctx.actions.declare_file(ctx.label.name + "_empty.o")
         ctx.actions.write(empty_object, "")
         object = empty_object
     args.add(object)
+    # LDC doesn't support mixing libs and flags, so we have to unpack the archives and pass the object files
+    # to the linker. This is a bit of a hack, but it works.
+    # Also, when compiling via bitcode, we already have the unpacked object files, but we don't pass that
+    # information correctly yet.
+    unpacked_lib_dirs = []
+    for lib in alwayslink_libraries:
+        unpacked_lib_dir = ctx.actions.declare_directory(ctx.label.name + "_" + lib.basename + "_unpacked_lib")
+        ctx.actions.run(
+            inputs = [lib],
+            executable = ctx.attr._extract_archive_script[DefaultInfo].files_to_run,
+            outputs = [unpacked_lib_dir],
+            arguments = [lib.path, unpacked_lib_dir.path],
+            mnemonic = "ExtractArchive",
+            progress_message = "Extracting archive %s" % lib.basename,
+        )
+        unpacked_lib_dirs.append(unpacked_lib_dir)
+    args.add_all(unpacked_lib_dirs)
     args.add_all(libraries)
     output = ctx.actions.declare_file(binary_name(ctx, ctx.label.name))
     args.add(output, format = "-of=%s")
@@ -66,7 +87,7 @@ def link_with_d_action(ctx, d_info, fat_lto):
     if get_os(ctx) != "windows":
         # DMD on Windows doesn't support -Xcc=
         args.add_all(cc_linker_info.cc_linking_options, format_each = "-Xcc=%s")
-    inputs = depset(direct = [object] + libraries)
+    inputs = depset(direct = [object] + libraries + unpacked_lib_dirs)
     ctx.actions.run(
         inputs = inputs,
         outputs = [output],

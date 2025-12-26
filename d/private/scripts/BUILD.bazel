@@ -1,4 +1,5 @@
 exports_files([
+    "extract_archive.sh",
     "ldc_wrapper.sh",
     "compile_bitcode.sh",
 ])

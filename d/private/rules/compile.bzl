@@ -74,6 +74,11 @@ runnable_attrs = dicts.add(
             default = "@rules_cc//cc:current_cc_toolchain",
             doc = "Default CC toolchain, used for linking. Remove after https://github.com/bazelbuild/bazel/issues/7260 is flipped (and support for old Bazel version is not needed)",
         ),
+        "_extract_archive_script": attr.label(
+            default = "//d/private/scripts:extract_archive.sh",
+            allow_single_file = True,
+            doc = "Script to extract archive to a directory",
+        ),
     },
 )
 
