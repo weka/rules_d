@@ -75,7 +75,7 @@ def link_action(ctx, d_info):
     if ctx.attr.dynamic_symbols:
         dynamic_symbols = ctx.attr.dynamic_symbols.files.to_list()[0]
         additional_inputs.append(dynamic_symbols)
-        user_link_flags.extend(["-dynamic-list", dynamic_symbols.path])
+        user_link_flags.append("-Wl,--dynamic-list=%s" % dynamic_symbols.path)
 
     return cc_common.link(
         name = ctx.label.name,
