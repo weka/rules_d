@@ -279,6 +279,7 @@ def _compilation_impl(ctx, target_type, config, toolchain, imports, string_impor
     # Prepare environment variables for wrapper
     env = dict(ctx.var)
     env["LDC2_REAL"] = toolchain.d_compiler[DefaultInfo].files_to_run.executable.path
+    env["D_TARGET"] = "%s" % ctx.label
     if source_map_file:
         env["LDC2_SOURCE_MAP"] = source_map_file.path
     if toolchain.debug_repo_root_override:

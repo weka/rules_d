@@ -10,6 +10,7 @@
 #                     Used in single-action mode where llc_archive_compiler handles unpacking
 #   LDC2_SOURCE_MAP - Path to the source map file (optional)
 #   AR_CMD          - ar command to use (default: "ar")
+#   D_TARGET        - Target we are currently compiling (used for import hints)
 
 set -e -o pipefail
 
@@ -39,8 +40,27 @@ if [ -n "$LDC2_DEBUG_REPO_ROOT_OVERRIDE" ]; then
     DEBUG_PREFIX_MAP="-fdebug-prefix-map=$PWD=$LDC2_DEBUG_REPO_ROOT_OVERRIDE"
 fi
 
+function d_deps_hints() {
+    # Extract the missing dependencies from the error message
+    # We need to remove the ANSI escape codes
+    # TODO: this is horrible, yet another reason to make C++ or Go wrapper instead.
+    lines=$(cat stderr.log | sed -r "s/[[:cntrl:]]\[[0-9]{1,3}m//g" | egrep "^[^(]+\([0-9]+\):.*Expected '[^']+' or '[^']+/package.d' in one of the following import paths:")
+    OLD_IFS="$IFS"
+    IFS=$'\n'
+    for line in $lines; do
+        from="${line%%(*}"
+        # Now extract the path after the "Expected '..."
+        to=${line#*Expected \'}
+        to=${to%%\'*}
+        echo "d_deps_hint: target=$D_TARGET src=$from import=$to"
+    done
+    IFS=$OLD_IFS
+}
+
+trap d_deps_hints ERR
+
 # Compile with real ldc2
-"$LDC2_REAL" $DEBUG_PREFIX_MAP "$@"
+"$LDC2_REAL" $DEBUG_PREFIX_MAP "$@" > >(tee stdout.log) 2> >(tee stderr.log >&2)
 
 # If LDC_SKIP_UNPACK is set, skip unpacking (for single-action mode)
 if [ -n "$LDC_SKIP_UNPACK" ]; then
