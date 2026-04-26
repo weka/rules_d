@@ -42,6 +42,7 @@ DToolchainInfo = provider(
         "fat_lto": "Default for Fat LTO (bool).",
         "generate_headers": "Default for automatic header generation (bool).",
         "link_with_d": "Default for using the D compiler for linking (bool).",
+        "feature_flags": "Mapping from feature name to compiler flags enabled by that feature (dict: str -> list[str]).",
     },
 )
 
@@ -121,6 +122,7 @@ def _d_toolchain_impl(ctx):
             druntime = config.druntime,
             druntime_per_mode = config.druntime_per_mode,
             link_with_d = config.link_with_d,
+            feature_flags = config.feature_flags,
         )
 
         # Make the $(tool_BIN) variable available in places like genrules.
@@ -197,6 +199,7 @@ def _d_toolchain_impl(ctx):
             druntime = None,
             druntime_per_mode = None,
             link_with_d = False,
+            feature_flags = {},
         )
 
         # Export all the providers inside our ToolchainInfo

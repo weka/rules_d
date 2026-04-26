@@ -63,6 +63,9 @@ DToolchainConfigInfo = provider(
         "fat_lto": "Default for Fat LTO (bool)",
         "generate_headers": "Default for automatic header generation (bool)",
         "link_with_d": "Default for using the D compiler for linking (bool)",
+
+        # Feature flags
+        "feature_flags": "Mapping from feature name to compiler flags enabled by that feature (dict: str -> list[str])",
     },
 )
 
@@ -161,6 +164,7 @@ def _d_toolchain_config_impl(ctx):
             fat_lto = ctx.attr.fat_lto,
             generate_headers = ctx.attr.generate_headers[BuildSettingInfo].value,
             link_with_d = ctx.attr.link_with_d,
+            feature_flags = ctx.attr.feature_flags,
         ),
     ]
 
@@ -398,6 +402,10 @@ d_toolchain_config = rule(
         "link_with_d": attr.bool(
             default = False,
             doc = "Default for using the D compiler for linking",
+        ),
+        "feature_flags": attr.string_list_dict(
+            default = {},
+            doc = "Mapping from feature name to compiler flags enabled by that feature.",
         ),
     },
 )

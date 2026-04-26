@@ -26,6 +26,7 @@ common_attrs = {
     ),
     "deps": attr.label_list(doc = "List of dependencies.", default = [], providers = [[CcInfo], [DInfo], [DDepsInfo]]),
     "dopts": attr.string_list(doc = "Compiler flags.", default = []),
+    "d_features": attr.string_list(doc = "D toolchain features to enable for this target (not propagated transitively).", default = []),
     "imports": attr.string_list(doc = "List of import paths.", default = []),
     "linkopts": attr.string_list(doc = "Linker flags passed via -L flags.", default = []),
     "string_imports": attr.string_list(doc = "List of string import paths.", default = []),
@@ -231,6 +232,19 @@ def _compilation_impl(ctx, target_type, config, toolchain, imports, string_impor
     # Use version_flag from toolchain config
     version_flag = toolchain.version_flag if toolchain.version_flag else "-version="
     args.add_all(global_versions + versions.to_list(), format_each = version_flag + "%s")
+    # Apply feature flags defined by the toolchain.  Feature flags are resolved
+    # per-target from ctx.attr.d_features and are NOT stored in DInfo, so they
+    # cannot propagate transitively the way dopts can.
+    feature_flags = toolchain.feature_flags if hasattr(toolchain, "feature_flags") else {}
+    if feature_flags:
+        effective_features = list(ctx.features) + [
+            f for f in ctx.attr.d_features
+            if f not in ctx.features
+        ]
+        for feature in effective_features:
+            if feature in feature_flags:
+                args.add_all(feature_flags[feature])
+
     output = None
     if target_type == TARGET_TYPE.TEST:
         args.add("-unittest")
