@@ -16,13 +16,24 @@ def link_action(ctx, d_info):
         ctx: The rule context.
         d_info: The DInfo provider containing the linking context.
     Returns:
-        A File for the linked binary.
+        A struct with:
+            executable: File for the linked binary.
+            additional_outputs: list of TreeArtifact File objects for the
+                directories declared via the `link_output_dirs` attribute
+                (empty if none requested).
     """
+    additional_outputs = [
+        ctx.actions.declare_directory(name)
+        for name in getattr(ctx.attr, "link_output_dirs", [])
+    ]
     toolchain = ctx.toolchains["//d:toolchain_type"].d_toolchain_info
     link_with_d = resolve_tristate_flag(ctx.attr.link_with_d, toolchain.link_with_d)
     fat_lto = resolve_tristate_flag(ctx.attr.fat_lto, toolchain.fat_lto)
     if link_with_d:
-        return link_with_d_action(ctx, d_info, fat_lto)
+        return struct(
+            executable = link_with_d_action(ctx, d_info, fat_lto, additional_outputs),
+            additional_outputs = additional_outputs,
+        )
     druntime = None
     mode = ctx.var["COMPILATION_MODE"]
     if fat_lto:
@@ -63,7 +74,8 @@ def link_action(ctx, d_info):
     if toolchain.linker_flags_per_mode and compilation_mode in toolchain.linker_flags_per_mode:
         user_link_flags.extend(toolchain.linker_flags_per_mode[compilation_mode])
 
-    user_link_flags.extend(ctx.attr.linkopts)
+    # ctx.attr.linkopts is propagated via d_info.linker_flags (with location
+    # expansion already applied in compile.bzl). Adding it here would double-add.
     user_link_flags.extend(d_info.linker_flags.to_list())
 
     additional_inputs = []
@@ -77,13 +89,20 @@ def link_action(ctx, d_info):
         additional_inputs.append(dynamic_symbols)
         user_link_flags.append("-Wl,--dynamic-list=%s" % dynamic_symbols.path)
 
-    return cc_common.link(
-        name = ctx.label.name,
-        actions = ctx.actions,
-        feature_configuration = cc_linker_info.feature_configuration,
-        cc_toolchain = cc_linker_info.cc_toolchain,
-        compilation_outputs = compilation_outputs,
-        linking_contexts = linking_contexts,
-        user_link_flags = user_link_flags,
-        additional_inputs = additional_inputs,
-    ).executable
+    for t in getattr(ctx.attr, "additional_linker_inputs", []):
+        additional_inputs.extend(t.files.to_list())
+
+    return struct(
+        executable = cc_common.link(
+            name = ctx.label.name,
+            actions = ctx.actions,
+            feature_configuration = cc_linker_info.feature_configuration,
+            cc_toolchain = cc_linker_info.cc_toolchain,
+            compilation_outputs = compilation_outputs,
+            linking_contexts = linking_contexts,
+            user_link_flags = user_link_flags,
+            additional_inputs = additional_inputs,
+            additional_outputs = additional_outputs,
+        ).executable,
+        additional_outputs = additional_outputs,
+    )

@@ -6,13 +6,17 @@ Action supporting old style linking using the D compiler.
 load("//d/private/rules:cc_toolchain.bzl", "find_cc_toolchain_for_linking")
 load("//d/private/rules:utils.bzl", "binary_name", "get_os")
 
-def link_with_d_action(ctx, d_info, fat_lto):
+def link_with_d_action(ctx, d_info, fat_lto, additional_outputs = []):
     """Action supporting old style linking using the D compiler.
 
     Args:
         ctx: The rule context.
         d_info: The DInfo provider containing the linking context.
         fat_lto: Whether to use fat LTO.
+        additional_outputs: extra File outputs (typically TreeArtifacts) to
+            declare on the link action so a wrapper or post-link tooling can
+            populate them. They are added to the action's outputs as-is — LDC
+            does not see them.
     Returns:
         A File for the linked binary.
     """
@@ -87,10 +91,10 @@ def link_with_d_action(ctx, d_info, fat_lto):
     if get_os(ctx) != "windows":
         # DMD on Windows doesn't support -Xcc=
         args.add_all(cc_linker_info.cc_linking_options, format_each = "-Xcc=%s")
-    inputs = depset(direct = [object] + libraries + unpacked_lib_dirs)
+    inputs = depset(direct = [object] + libraries + unpacked_lib_dirs + ctx.files.additional_linker_inputs)
     ctx.actions.run(
         inputs = inputs,
-        outputs = [output],
+        outputs = [output] + additional_outputs,
         executable = toolchain.d_compiler[DefaultInfo].files_to_run,
         tools = [cc_linker_info.cc_toolchain.all_files],
         arguments = [args],
