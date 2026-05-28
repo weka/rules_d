@@ -9,7 +9,8 @@ load("//d/private/rules:link.bzl", "link_action")
 def _d_test_impl(ctx):
     """Implementation of d_test rule."""
     d_info = compilation_action(ctx, target_type = TARGET_TYPE.TEST)
-    output = link_action(ctx, d_info)
+    link_result = link_action(ctx, d_info)
+    output = link_result.executable
     env_with_expansions = {
         k: expand_variables(ctx, ctx.expand_location(v, ctx.files.data), [output], "env")
         for k, v in ctx.attr.env.items()
@@ -17,6 +18,7 @@ def _d_test_impl(ctx):
     return [
         DefaultInfo(
             executable = output,
+            files = depset([output] + link_result.additional_outputs),
             runfiles = ctx.runfiles(files = ctx.files.data),
         ),
         RunEnvironmentInfo(environment = env_with_expansions),

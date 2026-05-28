@@ -71,6 +71,15 @@ runnable_attrs = dicts.add(
         "fat_lto": attr.string(default = "auto", values = ["auto", "on", "off"], doc = "Whether to use fat LTO."),
         "linker_script": attr.label(allow_single_file = True, doc = "Linker script to be used for the binary."),
         "link_with_d": attr.string(default = "auto", values = ["auto", "on", "off"], doc = "Whether to use the D compiler for linking."),
+        "additional_linker_inputs": attr.label_list(
+            allow_files = True,
+            default = [],
+            doc = "Additional inputs made visible to the link action (matches cc_library.additional_linker_inputs).",
+        ),
+        "link_output_dirs": attr.string_list(
+            default = [],
+            doc = "Names of additional TreeArtifact directory outputs the link action will produce. The link action declares them, surfaces them via DefaultInfo.files, and (cc_common.link path only) passes them to cc_common.link's additional_outputs so the linker — or a wrapper invoked through it — can populate them.",
+        ),
         "_cc_toolchain": attr.label(
             default = "@rules_cc//cc:current_cc_toolchain",
             doc = "Default CC toolchain, used for linking. Remove after https://github.com/bazelbuild/bazel/issues/7260 is flipped (and support for old Bazel version is not needed)",
@@ -513,19 +522,27 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY, cycle_breaker = F
         bc_output = compilation_result.bc_object
         bc_library_to_link = compilation_result.bc_library_to_link
 
+    # Expand $(location ...) / $(execpath ...) / $(rootpath ...) against the
+    # rule's additional_linker_inputs (matching cc_library.linkopts semantics).
+    # Done here so the expanded form propagates through both linker_input.user_link_flags
+    # and DInfo.linker_flags, avoiding double-add in link.bzl.
+    expanded_linkopts = [
+        ctx.expand_location(opt, targets = getattr(ctx.attr, "additional_linker_inputs", []))
+        for opt in ctx.attr.linkopts
+    ]
     linker_input = None
     if library_to_link:
         linker_input = cc_common.create_linker_input(
             owner = ctx.label,
             libraries = depset(direct = [library_to_link] if library_to_link else None),
-            user_link_flags = ctx.attr.linkopts,
+            user_link_flags = expanded_linkopts,
         )
     bc_linker_input = linker_input
     if bc_library_to_link:
         bc_linker_input = cc_common.create_linker_input(
             owner = ctx.label,
             libraries = depset(direct = [bc_library_to_link] if bc_library_to_link else None),
-            user_link_flags = ctx.attr.linkopts,
+            user_link_flags = expanded_linkopts,
         )
     linking_context = cc_common.create_linking_context(
         linker_inputs = depset(
@@ -558,7 +575,7 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY, cycle_breaker = F
         ),
         linking_context = linking_context,  # Already includes all deps internally
         linker_flags = depset(
-            ctx.attr.linkopts,
+            expanded_linkopts,
             transitive = [d.linker_flags for d in d_deps],  # Only regular deps
         ),
         source_map = export_source_map,
