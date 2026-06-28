@@ -120,6 +120,17 @@ library_attrs = dicts.add(
             providers = [[CcInfo], [DInfo], [DDepsInfo]],
             default = [],
         ),
+        "link_only_deps": attr.label_list(
+            doc = """Link-only dependencies: their object code is propagated
+                transitively to the final binary, but their interface is NOT
+                added to this target's compile inputs and NOT propagated to
+                consumers. Use for object-code transit edges where the
+                interface is already supplied through `deps` (e.g. fine-grained
+                per-file -exports leaves), so the compile rebuild cone stays
+                narrow while linking still works via transit.""",
+            providers = [[CcInfo], [DInfo], [DDepsInfo]],
+            default = [],
+        ),
         "qualified_object_file_names": attr.string(
             default = "auto",
             values = ["auto", "on", "off"],
@@ -439,7 +450,24 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY, cycle_breaker = F
         impl_c_deps = [d[CcInfo] for d in flattened_impl_deps if CcInfo in d]
         impl_d_deps = [d[DInfo] for d in flattened_impl_deps if DInfo in d]
 
-    # For compilation: use ALL deps (regular + implementation)
+    # Link-only dependencies: object code transits to the final binary, but
+    # the interface is NOT added to compile inputs and NOT propagated to
+    # consumers. Gathered separately so they never enter all_*_deps (compile)
+    # nor the propagated interface_srcs — only the linking_context below.
+    linkonly_c_deps = []
+    linkonly_d_deps = []
+    if hasattr(ctx.attr, "link_only_deps") and ctx.attr.link_only_deps:
+        flattened_linkonly_deps = []
+        for d in ctx.attr.link_only_deps:
+            if DDepsInfo not in d:
+                flattened_linkonly_deps.append(d)
+            else:
+                flattened_linkonly_deps.extend(d[DDepsInfo].deps)
+        linkonly_c_deps = [d[CcInfo] for d in flattened_linkonly_deps if CcInfo in d]
+        linkonly_d_deps = [d[DInfo] for d in flattened_linkonly_deps if DInfo in d]
+
+    # For compilation: use ALL deps (regular + implementation). link_only_deps
+    # are deliberately excluded — they contribute object code only.
     all_c_deps = c_deps + impl_c_deps
     all_d_deps = d_deps + impl_d_deps
 
@@ -549,7 +577,7 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY, cycle_breaker = F
             direct = [linker_input] if linker_input else None,
             transitive = [
                 d.linking_context.linker_inputs
-                for d in all_c_deps + all_d_deps
+                for d in all_c_deps + all_d_deps + linkonly_c_deps + linkonly_d_deps
             ],
         ),
     )
@@ -558,8 +586,8 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY, cycle_breaker = F
             direct = [bc_linker_input] if bc_linker_input else None,
             transitive = [
                 d.bc_linking_context.linker_inputs
-                for d in all_d_deps
-            ] + [d.linking_context.linker_inputs for d in all_c_deps],
+                for d in all_d_deps + linkonly_d_deps
+            ] + [d.linking_context.linker_inputs for d in all_c_deps + linkonly_c_deps],
         ),
     )
     # For DInfo propagation: use only regular deps (not implementation deps)
