@@ -2,7 +2,7 @@
 
 ## API Documentation
 
-https://registry.bazel.build/docs/rules_d
+https://registry.bazel.build/modules/rules_d/latest/docs
 
 ## Features
 
