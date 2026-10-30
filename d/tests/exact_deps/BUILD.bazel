@@ -1,0 +1,40 @@
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+load("//d:defs.bzl", "d_library")
+load("//d/tests/exact_deps:exact_deps.bzl", "unused_inputs")
+
+d_library(
+    name = "dep",
+    srcs = [
+        "dep/foo/bar.d",
+        "dep/foo/baz.d",
+        "dep/foo/unread.d",
+    ],
+    imports = ["dep"],
+    string_imports = ["dep"],
+    string_srcs = [
+        "dep/strings/flag.txt",
+        "dep/strings/unread.txt",
+    ],
+)
+
+# Reads dep's files only through speculative imports; see speculative.d.
+d_library(
+    name = "speculative",
+    srcs = ["speculative.d"],
+    deps = [":dep"],
+)
+
+unused_inputs(
+    name = "speculative_unused_inputs",
+    target = ":speculative",
+    # Exact deps needs GNU coreutils (realpath -e, xargs -d).
+    target_compatible_with = ["@platforms//os:linux"],
+)
+
+sh_test(
+    name = "speculative_test",
+    srcs = ["speculative_test.sh"],
+    args = ["$(rootpaths :speculative_unused_inputs)"],
+    data = [":speculative_unused_inputs"],
+    target_compatible_with = ["@platforms//os:linux"],
+)
