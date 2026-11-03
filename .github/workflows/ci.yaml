@@ -20,11 +20,13 @@ jobs:
       folders: |
         [
           ".",
-          "e2e/smoke"
+          "e2e/smoke",
+          "e2e/time_trace"
         ]
       exclude: |
         [
-          {"folder": ".", "bzlmodEnabled": false}
+          {"folder": ".", "bzlmodEnabled": false},
+          {"folder": "e2e/time_trace", "bzlmodEnabled": false}
         ]
       bazel_test_command: bazel test --config=ci //...
   pre-commit:

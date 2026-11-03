@@ -11,6 +11,7 @@ def _d_library_impl(ctx):
     return [
         d_info,
         DefaultInfo(files = files),
+        OutputGroupInfo(time_traces = d_info.time_traces),
     ]
 
 d_library = rule(

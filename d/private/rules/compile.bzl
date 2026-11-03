@@ -233,6 +233,21 @@ def _candidate_path(f):
     # A directory stays a used input: -makedeps lists the files read under it, never the directory.
     return None if f.is_directory else f.path
 
+def _flag_name(flag):
+    # ldc2 takes -name and --name alike.
+    return flag.lstrip("-").split("=", 1)[0]
+
+def _sets_flag(flags, name):
+    return any([_flag_name(f) == name for f in flags])
+
+def _time_trace_enabled(flags):
+    # The last -ftime-trace[=bool] wins.
+    enabled = False
+    for f in flags:
+        if _flag_name(f) == "ftime-trace":
+            enabled = "=" not in f or f.split("=", 1)[1].lower() not in ("false", "0")
+    return enabled
+
 def _compilation_impl(ctx, target_type, config, toolchain, imports, string_imports, compiler_flags, versions, global_versions, all_d_deps, source_map):
     compilation_mode = ctx.var["COMPILATION_MODE"]
     single_object = config.single_object
@@ -244,11 +259,34 @@ def _compilation_impl(ctx, target_type, config, toolchain, imports, string_impor
     args = ctx.actions.args()
 
     # Apply compiler flags in order: toolchain common, toolchain per-mode, user flags
-    if toolchain.compiler_flags:
-        args.add_all(toolchain.compiler_flags)
+    toolchain_flags = (toolchain.compiler_flags or []) + (toolchain.compiler_flags_per_mode or {}).get(compilation_mode, [])
+    args.add_all(toolchain_flags)
 
-    if toolchain.compiler_flags_per_mode and compilation_mode in toolchain.compiler_flags_per_mode:
-        args.add_all(toolchain.compiler_flags_per_mode[compilation_mode])
+    # Feature flags defined by the toolchain.  Feature flags are resolved
+    # per-target from ctx.attr.d_features and are NOT stored in DInfo, so they
+    # cannot propagate transitively the way dopts can.
+    feature_flags = toolchain.feature_flags if hasattr(toolchain, "feature_flags") else {}
+    target_feature_flags = []
+    if feature_flags:
+        effective_features = list(ctx.features) + [
+            f for f in ctx.attr.d_features
+            if f not in ctx.features
+        ]
+        for feature in effective_features:
+            if feature in feature_flags:
+                target_feature_flags.extend(feature_flags[feature])
+    user_flags = compiler_flags.to_list()
+
+    # Without an explicit file, ldc2 names the profile after the first object and writes it
+    # outside the declared outputs, so bazel drops it.
+    time_trace = None
+    if _sets_flag(user_flags + target_feature_flags, "ftime-trace"):
+        fail("%s: set --ftime-trace in the toolchain's compiler flags, not in dopts or a d_feature: only those get a declared profile." % ctx.label)
+    if _sets_flag(toolchain_flags + user_flags + target_feature_flags, "ftime-trace-file"):
+        fail("%s: drop --ftime-trace-file: rules_d passes it with --ftime-trace, and ldc2 rejects a second one." % ctx.label)
+    if _time_trace_enabled(toolchain_flags):
+        time_trace = ctx.actions.declare_file(ctx.label.name + ".time-trace")
+        args.add(time_trace, format = "--ftime-trace-file=%s")
 
     for src in srcs:
         if src in source_map:
@@ -257,23 +295,12 @@ def _compilation_impl(ctx, target_type, config, toolchain, imports, string_impor
             args.add(src)
     args.add_all(imports.to_list(), format_each = "-I=%s")
     args.add_all(string_imports.to_list(), format_each = "-J=%s")
-    args.add_all(compiler_flags.to_list())
+    args.add_all(user_flags)
 
     # Use version_flag from toolchain config
     version_flag = toolchain.version_flag if toolchain.version_flag else "-version="
     args.add_all(global_versions + versions.to_list(), format_each = version_flag + "%s")
-    # Apply feature flags defined by the toolchain.  Feature flags are resolved
-    # per-target from ctx.attr.d_features and are NOT stored in DInfo, so they
-    # cannot propagate transitively the way dopts can.
-    feature_flags = toolchain.feature_flags if hasattr(toolchain, "feature_flags") else {}
-    if feature_flags:
-        effective_features = list(ctx.features) + [
-            f for f in ctx.attr.d_features
-            if f not in ctx.features
-        ]
-        for feature in effective_features:
-            if feature in feature_flags:
-                args.add_all(feature_flags[feature])
+    args.add_all(target_feature_flags)
 
     output = None
     if target_type == TARGET_TYPE.TEST:
@@ -389,6 +416,8 @@ def _compilation_impl(ctx, target_type, config, toolchain, imports, string_impor
     # Stage 1: Compile (and optionally unpack if bitcode)
     args.add(compile_output, format = "-of=%s")
     outputs = [compile_output] + bc_objs
+    if time_trace:
+        outputs.append(time_trace)
     tools = [toolchain.d_compiler[DefaultInfo].files_to_run]
     # Add ar_tool to tools if using it for unpacking
     if compile_via_bc and toolchain.ar_tool:
@@ -427,6 +456,7 @@ def _compilation_impl(ctx, target_type, config, toolchain, imports, string_impor
         native_library_to_link = library_to_link,
         bc_object = bc_obj,
         bc_library_to_link = bc_library_to_link,
+        time_trace = time_trace,
     )
 
 def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY, cycle_breaker = False, cycle_breaker_lib = None):
@@ -571,6 +601,7 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY, cycle_breaker = F
     output = None
     bc_output = None
     bc_library_to_link = None
+    time_trace = None
     # Skip compilation if no sources (header-only or deps-only library)
     if has_srcs and not cycle_breaker:
         compilation_result = _compilation_impl(ctx, target_type, config, toolchain, imports, string_imports, compiler_flags, versions, global_versions, all_d_deps, our_source_map)
@@ -578,6 +609,7 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY, cycle_breaker = F
         output = compilation_result.native_object
         bc_output = compilation_result.bc_object
         bc_library_to_link = compilation_result.bc_library_to_link
+        time_trace = compilation_result.time_trace
 
     # Expand $(location ...) / $(execpath ...) / $(rootpath ...) against the
     # rule's additional_linker_inputs (matching cc_library.linkopts semantics).
@@ -646,5 +678,9 @@ def compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY, cycle_breaker = F
         libs_non_bc = depset(
             direct = [output] if (output and target_type == TARGET_TYPE.LIBRARY and not compile_via_bc and not ctx.attr.source_only) else [],
             transitive = [d.libs_non_bc for d in d_deps if hasattr(d, "libs_non_bc")],
+        ),
+        time_traces = depset(
+            direct = [time_trace] if time_trace else [],
+            transitive = [d.time_traces for d in all_d_deps + linkonly_d_deps],
         ),
     )

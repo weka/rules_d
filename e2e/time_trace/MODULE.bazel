@@ -1,0 +1,17 @@
+module(
+    name = "time_trace_tests",
+    version = "0.0.0",
+)
+
+bazel_dep(name = "rules_d", version = "0.0.0")
+bazel_dep(name = "bazel_skylib", version = "1.8.2")
+bazel_dep(name = "platforms", version = "1.0.0")
+bazel_dep(name = "rules_shell", version = "0.4.1")
+
+local_path_override(
+    module_name = "rules_d",
+    path = "../..",
+)
+
+# Registered by the root module, so it is tried before rules_d's own; it only matches with --//:trace.
+register_toolchains("//:time_trace_toolchain")
