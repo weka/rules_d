@@ -1,0 +1,76 @@
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
+load("@rules_d//d:defs.bzl", "d_library", "d_test")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+load(":time_traces.bzl", "time_traces", "traced_toolchain")
+
+bool_flag(
+    name = "trace",
+    build_setting_default = False,
+)
+
+config_setting(
+    name = "trace_on",
+    flag_values = {":trace": "true"},
+)
+
+# rules_d's default toolchain plus --ftime-trace, per mode as wekapp sets it. The single dash
+# checks that detection is not limited to the --ftime-trace spelling.
+traced_toolchain(
+    name = "ldc_trace_toolchain",
+    flags = [
+        "-ftime-trace",
+        "--ftime-trace-granularity=0",
+    ],
+)
+
+toolchain(
+    name = "time_trace_toolchain",
+    exec_compatible_with = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+    target_settings = [":trace_on"],
+    toolchain = ":ldc_trace_toolchain",
+    toolchain_type = "@rules_d//d:toolchain_type",
+)
+
+d_library(
+    name = "ctfe_lib",
+    srcs = ["ctfe_lib.d"],
+)
+
+d_test(
+    name = "ctfe_test",
+    srcs = ["ctfe_test.d"],
+    deps = [":ctfe_lib"],
+)
+
+time_traces(
+    name = "traces_on",
+    testonly = True,
+    target = ":ctfe_test",
+    target_compatible_with = ["@platforms//os:linux"],
+    trace = True,
+)
+
+time_traces(
+    name = "traces_off",
+    testonly = True,
+    target = ":ctfe_test",
+    target_compatible_with = ["@platforms//os:linux"],
+    trace = False,
+)
+
+sh_test(
+    name = "time_trace_test",
+    srcs = ["time_trace_test.sh"],
+    args = [
+        "$(rootpath :traces_on)",
+        "$(rootpath :traces_off)",
+    ],
+    data = [
+        ":traces_off",
+        ":traces_on",
+    ],
+    target_compatible_with = ["@platforms//os:linux"],
+)

@@ -1,0 +1,7 @@
+# Import bazelrc presets
+import ../../tools/preset.bazelrc
+
+# project-specific settings
+common --lockfile_mode=off
+
+common:ci --disk_cache=~/.cache/bazel

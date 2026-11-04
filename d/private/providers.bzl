@@ -15,7 +15,8 @@ def _dinfo_init(
         string_imports = None,
         versions = None,
         libs_bc = None,
-        libs_non_bc = None):
+        libs_non_bc = None,
+        time_traces = None):
     """Initializes the DInfo provider."""
     return {
         "bc_output": bc_output,
@@ -32,6 +33,7 @@ def _dinfo_init(
         "versions": versions or depset(),
         "libs_bc": libs_bc or depset(),
         "libs_non_bc": libs_non_bc or depset(),
+        "time_traces": time_traces or depset(),
     }
 
 DInfo, _new_dinfo = provider(
@@ -51,6 +53,7 @@ DInfo, _new_dinfo = provider(
         "versions": "A depset of version identifiers.",
         "libs_bc": "A depset of bitcode library files.",
         "libs_non_bc": "A depset of non-bitcode library files.",
+        "time_traces": "A depset of --ftime-trace profiles of this target and its transitive D deps, empty unless the toolchain's flags enable --ftime-trace.",
     },
     init = _dinfo_init,
 )

@@ -8,7 +8,11 @@ load("//d/private/rules:compile.bzl", "compilation_action", "library_attrs", "TA
 load("//d/private:providers.bzl", "DInfo")
 
 def _d_library_break_impl(ctx):
-    return [compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY, cycle_breaker = True)]
+    d_info = compilation_action(ctx, target_type = TARGET_TYPE.LIBRARY, cycle_breaker = True)
+    return [
+        d_info,
+        OutputGroupInfo(time_traces = d_info.time_traces),
+    ]
 
 d_library_break = rule(
     implementation = _d_library_break_impl,
@@ -23,6 +27,7 @@ def _d_library_continue_impl(ctx):
     return [
         d_info,
         DefaultInfo(files = files),
+        OutputGroupInfo(time_traces = d_info.time_traces),
     ]
 
 d_library_continue = rule(

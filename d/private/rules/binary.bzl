@@ -21,6 +21,7 @@ def _d_binary_impl(ctx):
             runfiles = ctx.runfiles(files = ctx.files.data),
         ),
         RunEnvironmentInfo(environment = env_with_expansions),
+        OutputGroupInfo(time_traces = d_info.time_traces),
     ]
 
 d_binary = rule(
