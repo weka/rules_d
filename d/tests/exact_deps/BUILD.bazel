@@ -1,6 +1,6 @@
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//d:defs.bzl", "d_library")
-load("//d/tests/exact_deps:exact_deps.bzl", "unused_inputs")
+load("//d/tests/exact_deps:exact_deps.bzl", "dcompile_actions", "unused_inputs")
 
 d_library(
     name = "dep",
@@ -37,4 +37,44 @@ sh_test(
     args = ["$(rootpaths :speculative_unused_inputs)"],
     data = [":speculative_unused_inputs"],
     target_compatible_with = ["@platforms//os:linux"],
+)
+
+# record_unread_deps alone must write the list exact_deps writes.
+unused_inputs(
+    name = "speculative_recorded_unused_inputs",
+    flag = "record_unread_deps",
+    target = ":speculative",
+    target_compatible_with = ["@platforms//os:linux"],
+)
+
+sh_test(
+    name = "speculative_recorded_test",
+    srcs = ["speculative_test.sh"],
+    args = ["$(rootpaths :speculative_recorded_unused_inputs)"],
+    data = [":speculative_recorded_unused_inputs"],
+    target_compatible_with = ["@platforms//os:linux"],
+)
+
+dcompile_actions(
+    name = "speculative_actions",
+    target = ":speculative",
+)
+
+dcompile_actions(
+    name = "speculative_recorded_actions",
+    flag = "record_unread_deps",
+    target = ":speculative",
+)
+
+sh_test(
+    name = "same_action_test",
+    srcs = ["same_action_test.sh"],
+    args = [
+        "$(rootpath :speculative_actions)",
+        "$(rootpath :speculative_recorded_actions)",
+    ],
+    data = [
+        ":speculative_actions",
+        ":speculative_recorded_actions",
+    ],
 )

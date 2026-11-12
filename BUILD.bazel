@@ -32,3 +32,13 @@ bool_flag(
     build_setting_default = False,
     visibility = ["//visibility:public"],
 )
+
+# A D compile writes the list of dependency files it did not read, and bazel does not prune with it.
+# The compile action is then the one exact_deps declares, so a build that must not prune (CI, a
+# release) and a build with exact_deps share remote cache entries. With exact_deps on, this flag
+# changes nothing. Needs the same GNU coreutils as exact_deps.
+bool_flag(
+    name = "record_unread_deps",
+    build_setting_default = False,
+    visibility = ["//visibility:public"],
+)

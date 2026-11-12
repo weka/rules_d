@@ -63,6 +63,11 @@ common_attrs = {
         providers = [BuildSettingInfo],
         doc = "Whether a compile's action key holds only the imported D sources it read",
     ),
+    "_record_unread_deps": attr.label(
+        default = "//:record_unread_deps",
+        providers = [BuildSettingInfo],
+        doc = "Whether a compile writes the list of dependency files it did not read, without bazel pruning with it",
+    ),
     "_linux_constraint": attr.label(default = "@platforms//os:linux", doc = "Linux platform constraint"),
     "_macos_constraint": attr.label(default = "@platforms//os:macos", doc = "macOS platform constraint"),
     "_windows_constraint": attr.label(default = "@platforms//os:windows", doc = "Windows platform constraint"),
@@ -353,9 +358,12 @@ def _compilation_impl(ctx, target_type, config, toolchain, imports, string_impor
     # Exact deps: the wrapper lists the dependency files (D sources and string-import files) the compile did not
     # read. The candidates file itself stays in the key: a file added to a dependency can satisfy an import or a
     # string import that found no file (one in __traits(compiles) does not fail the compile).
+    # record_unread_deps declares the same action and only withholds the list from bazel: command, env,
+    # inputs and outputs must not depend on which of the two flags is set, or their remote keys differ.
     candidates = []
     unused_inputs = None
-    if ctx.attr._exact_deps[BuildSettingInfo].value:
+    exact_deps = ctx.attr._exact_deps[BuildSettingInfo].value
+    if exact_deps or ctx.attr._record_unread_deps[BuildSettingInfo].value:
         candidates_file = ctx.actions.declare_file(ctx.label.name + ".d_candidates")
         candidate_lines = ctx.actions.args()
         candidate_lines.set_param_file_format("multiline")
@@ -435,7 +443,7 @@ def _compilation_impl(ctx, target_type, config, toolchain, imports, string_impor
         use_default_shell_env = False,
         mnemonic = "Dcompile",
         progress_message = "Compiling D %s %s" % (target_type, ctx.label.name),
-        unused_inputs_list = unused_inputs,
+        unused_inputs_list = unused_inputs if exact_deps else None,
     )
 
     # Stage 2 & 3: Bitcode to native compilation and repacking (if bitcode enabled)
